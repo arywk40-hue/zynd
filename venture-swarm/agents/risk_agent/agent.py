@@ -33,32 +33,8 @@ def _load_agent_config() -> dict:
     return json.loads(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
 
 
-def _build_data(query: str) -> list[dict]:
-    q = query.lower()
-    severity = "Medium"
-    if any(k in q for k in ["health", "medical", "finance", "insurance", "education"]):
-        severity = "High"
-
-    return [
-        {
-            "risk": "Model hallucinations causing incorrect decisions",
-            "category": "technical-risk-analysis",
-            "severity": "High",
-            "mitigation": "Use retrieval over trusted sources, constrain outputs, add human-in-the-loop for high-stakes steps.",
-        },
-        {
-            "risk": "Data privacy and retention obligations",
-            "category": "regulatory-risk-analysis",
-            "severity": severity,
-            "mitigation": "Minimize data, encrypt, use audit logs, adopt DPAs, support on-prem / VPC if needed.",
-        },
-        {
-            "risk": "Integration complexity and change management",
-            "category": "technical-risk-analysis",
-            "severity": "Medium",
-            "mitigation": "Start with 1-2 core integrations and measurable, narrow workflow outcomes.",
-        },
-    ]
+def _build_data(_: str) -> list[dict]:
+    return []
 
 
 agent: ZyndAIAgent | None = None
@@ -130,7 +106,7 @@ async def webhook_sync(payload: dict) -> AgentTaskResponse:
         agent_name=agent.agent_config.name,
         capability="regulatory-risk-analysis",
         data=data,
-        notes=["Generated via SDK invoke() and AgentMessage webhook flow."],
+        notes=["No risk data source configured."],
     )
     agent.set_response(msg.message_id, json.dumps(response.model_dump(mode="json"), ensure_ascii=False))
     return response

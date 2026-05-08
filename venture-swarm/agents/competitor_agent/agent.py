@@ -33,28 +33,8 @@ def _load_agent_config() -> dict:
     return json.loads(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
 
 
-def _build_data(query: str) -> list[dict]:
-    q = query.lower()
-    saturation = "Medium"
-    if any(k in q for k in ["copilot", "assistant", "ai agent", "workflow automation"]):
-        saturation = "High"
-    if any(k in q for k in ["industrial", "construction", "maritime", "rural"]):
-        saturation = "Low"
-
-    return [
-        {
-            "competitor_type": "Horizontal AI tooling",
-            "examples": ["Generic copilots", "LLM platforms", "Automation suites"],
-            "differentiation_angle": "Own a narrow workflow with deep integrations and outcomes-based pricing.",
-            "saturation": saturation,
-        },
-        {
-            "competitor_type": "Incumbent workflow software",
-            "examples": ["Legacy SaaS vendors", "ERP add-ons"],
-            "differentiation_angle": "Win on time-to-value and model-backed decision support (not just UI).",
-            "saturation": "Medium",
-        },
-    ]
+def _build_data(_: str) -> list[dict]:
+    return []
 
 
 agent: ZyndAIAgent | None = None
@@ -126,7 +106,7 @@ async def webhook_sync(payload: dict) -> AgentTaskResponse:
         agent_name=agent.agent_config.name,
         capability="competitor-analysis",
         data=data,
-        notes=["Generated via SDK invoke() and AgentMessage webhook flow."],
+        notes=["No competitor data source configured."],
     )
     agent.set_response(msg.message_id, json.dumps(response.model_dump(mode="json"), ensure_ascii=False))
     return response

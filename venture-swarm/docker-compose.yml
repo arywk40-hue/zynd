@@ -23,7 +23,7 @@ services:
       - DIRECTORY_URL=http://directory:8000
       - ZYND_REGISTRY_URL=http://directory:8000
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - PREMIUM_PAYMENT_TOKEN=${PREMIUM_PAYMENT_TOKEN:-demo-token}
+      - PREMIUM_PAYMENT_TOKEN=${PREMIUM_PAYMENT_TOKEN:-}
       - ORCHESTRATOR_SDK_WEBHOOK_PORT=9201
 
   trend-agent:

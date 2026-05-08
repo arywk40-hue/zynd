@@ -33,19 +33,8 @@ def _load_agent_config() -> dict:
     return json.loads(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
 
 
-def _build_data(query: str) -> list[dict]:
-    q = query.lower()
-    items = []
-    for trend, evidence, horizon in [
-        ("AI copilots for niche vertical workflows", "Strong pull for automating repetitive knowledge work", "6-18 months"),
-        ("Regulatory-ready AI (auditable, explainable)", "Enterprises shifting from POCs to compliant deployments", "12-24 months"),
-        ("Synthetic data + privacy-preserving analytics", "Rising constraints on data sharing increases demand for alternatives", "12-24 months"),
-    ]:
-        confidence = 0.72
-        if any(k in q for k in ["health", "medical", "hipaa", "clinical"]) and "regulatory" in trend.lower():
-            confidence = 0.86
-        items.append({"trend": trend, "evidence": evidence, "time_horizon": horizon, "confidence": confidence})
-    return items
+def _build_data(_: str) -> list[dict]:
+    return []
 
 
 agent: ZyndAIAgent | None = None
@@ -117,7 +106,7 @@ async def webhook_sync(payload: dict) -> AgentTaskResponse:
         agent_name=agent.agent_config.name,
         capability="trend-analysis",
         data=data,
-        notes=["Generated via SDK invoke() and AgentMessage webhook flow."],
+        notes=["No trend data source configured."],
     )
     agent.set_response(msg.message_id, json.dumps(response.model_dump(mode="json"), ensure_ascii=False))
     return response

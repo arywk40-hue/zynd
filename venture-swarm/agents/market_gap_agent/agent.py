@@ -33,24 +33,8 @@ def _load_agent_config() -> dict:
     return json.loads(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
 
 
-def _build_data(query: str) -> list[dict]:
-    q = query.lower()
-    return [
-        {
-            "gap": "Workflow-specific AI that produces audit-ready artifacts",
-            "target_user": "Ops and compliance leaders",
-            "value_prop": "Automate documentation and decisions with traceability.",
-            "why_now": "Enterprises demand proof and governance for AI output.",
-            "confidence": 0.77,
-        },
-        {
-            "gap": "Field-worker-first AI for low-connectivity environments",
-            "target_user": "Distributed teams (construction, rural health, utilities)",
-            "value_prop": "Offline-friendly assistive guidance + structured handoffs.",
-            "why_now": "Mobile models and edge inference make it practical.",
-            "confidence": 0.82 if any(k in q for k in ["rural", "field", "offline"]) else 0.68,
-        },
-    ]
+def _build_data(_: str) -> list[dict]:
+    return []
 
 
 agent: ZyndAIAgent | None = None
@@ -122,7 +106,7 @@ async def webhook_sync(payload: dict) -> AgentTaskResponse:
         agent_name=agent.agent_config.name,
         capability="market-gap-analysis",
         data=data,
-        notes=["Generated via SDK invoke() and AgentMessage webhook flow."],
+        notes=["No market gap data source configured."],
     )
     agent.set_response(msg.message_id, json.dumps(response.model_dump(mode="json"), ensure_ascii=False))
     return response

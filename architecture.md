@@ -3,7 +3,7 @@
 ## System Overview
 The Autonomous Startup Intelligence Swarm is a multi-tier, decentralized AI ecosystem. Rather than relying on a single monolithic LLM, this system utilizes an **Orchestrator Agent** to dynamically discover, hire, and manage a network of specialized sub-agents using the Zynd Python SDK. 
 
-This architecture demonstrates true autonomous networking, parallel execution, and simulated AI-to-AI micro-economies.
+This architecture demonstrates autonomous networking, parallel execution, and AI-to-AI service coordination.
 
 ---
 
@@ -55,7 +55,7 @@ Each agent is registered as an independent entity on the Zynd network using `Zyn
 
 * **Trend Research Agent:** Utilizes Tavily/SerpAPI to find market momentum.
 * **Competitor Analysis Agent:** Analyzes saturation and existing solutions.
-* **Funding Intelligence Agent:** Tracks Crunchbase/YC data (can be gated behind a simulated USDC micro-payment flow signaled via HTTP 402 Payment Required).
+* **Funding Intelligence Agent:** Tracks funding data and can be gated behind a payment flow signaled via HTTP 402 Payment Required.
 * **Risk Analysis Agent:** Evaluates regulatory and technical barriers.
 
 ---
@@ -67,7 +67,7 @@ This project heavily leverages the unique features of the Zynd SDK to prove the 
 1. **Identity & Registration:** Every agent boots up with a distinct Ed25519 identity and registers an Entity Card containing its capabilities and tags.
 2. **Dynamic Discovery:** The Orchestrator does not hardcode worker IPs. It uses `search_agents(keyword="target-skill")` to find workers at runtime.
 3. **Agent-to-Agent Comms:** All task delegation occurs via `/webhook/sync`.
-4. **AI Economy (Bonus):** Implements automated USDC micro-payments, using HTTP 402 Payment Required as the payment-required signal for "premium" data agents, proving out the concept of monetized machine-to-machine intelligence.
+4. **AI Economy:** Uses HTTP 402 Payment Required as the payment-required signal for premium data agents.
 
 ---
 

@@ -44,28 +44,8 @@ def _load_agent_config() -> dict:
     return json.loads(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
 
 
-def _build_data(query: str) -> list[dict]:
-    q = query.lower()
-    return [
-        {
-            "signal": "Clear expansion path to adjacent verticals",
-            "why_it_matters": "Investors prefer wedge + expansion strategies that scale.",
-            "who_pays_attention": ["Seed VCs", "Operator angels"],
-            "confidence": 0.74,
-        },
-        {
-            "signal": "Regulated industry pain with measurable ROI",
-            "why_it_matters": "Budget owners in regulated sectors pay for compliant automation.",
-            "who_pays_attention": ["Strategic investors", "Growth equity (later)"],
-            "confidence": 0.78 if any(k in q for k in ["health", "finance", "insurance"]) else 0.65,
-        },
-        {
-            "signal": "Data advantage via integrations (not proprietary data hoarding)",
-            "why_it_matters": "Distribution and workflow capture beat raw-model differentiation.",
-            "who_pays_attention": ["SaaS investors", "Platform funds"],
-            "confidence": 0.71,
-        },
-    ]
+def _build_data(_: str) -> list[dict]:
+    return []
 
 
 agent: ZyndAIAgent | None = None
@@ -140,9 +120,9 @@ async def webhook_sync(payload: dict, x_payment_token: str | None = Header(defau
     raw = agent.invoke(f"{msg.content}\nInstruction: {instruction}" if instruction else msg.content)
     data = json.loads(raw)
 
-    notes = ["Generated via SDK invoke() and AgentMessage webhook flow."]
+    notes = ["No funding data source configured."]
     if x_payment_token:
-        notes.append("Payment token accepted.")
+        notes.append("Payment token received.")
 
     response = AgentTaskResponse(
         task_id=task_id,

@@ -61,13 +61,13 @@ def aggregate(
     if funding_strength < 0.6:
         monetization_potential = "Low"
 
-    top_gap = market_gaps.data[0] if market_gaps.data else {"gap": "Startup wedge", "value_prop": "Value prop"}
+    top_gap = market_gaps.data[0] if market_gaps.data else {}
     top_opportunity = OpportunitySummary(
-        name=str(top_gap.get("gap", "Top opportunity")).strip()[:80],
+        name=str(top_gap.get("gap", "No opportunity identified")).strip()[:80],
         score=opportunity_score,
         market_saturation=saturation,  # type: ignore[arg-type]
         execution_difficulty=difficulty,  # type: ignore[arg-type]
-        monetization="B2B SaaS",
+        monetization=str(top_gap.get("monetization", "Not enough data")),
     )
 
     return StartupReport(
@@ -84,4 +84,3 @@ def aggregate(
         risks=risks.data,
         agent_trace=agent_trace,
     )
-

@@ -149,33 +149,18 @@ SERVICE_URL=http://localhost:8102 PREMIUM_REQUIRED=true uvicorn agents.funding_a
 SERVICE_URL=http://localhost:8103 uvicorn agents.competitor_agent.agent:app --port 8103
 SERVICE_URL=http://localhost:8104 uvicorn agents.market_gap_agent.agent:app --port 8104
 SERVICE_URL=http://localhost:8105 uvicorn agents.risk_agent.agent:app --port 8105
-PREMIUM_PAYMENT_TOKEN=demo-token uvicorn main:app --port 8001
+PREMIUM_PAYMENT_TOKEN=$PREMIUM_PAYMENT_TOKEN uvicorn main:app --port 8001
 ```
 
-## Demo Script
+## API Call
 
 ```bash
 curl -s http://localhost:8001/report \
   -H 'content-type: application/json' \
-  -d '{"query":"Find a startup opportunity in rural healthcare diagnostics using AI."}' | jq
+  -d '{"query":"<startup intelligence query>"}' | jq
 ```
 
-Expected live logs include:
-
-- `[Planner] Breaking task into subtasks...`
-- `[Discovery] Searching trend-analysis agents...`
-- `[Ranking] Selecting highest reputation agent...`
-- `[Dispatch] Sending task to funding-agent...`
-- `[Failover] Trying replacement ...` (when needed)
-- `[Aggregation] Combining intelligence...`
-
-## Screenshots (placeholders)
-
-- `docs/screenshots/orchestrator.png`
-- `docs/screenshots/agents.png`
-- `docs/screenshots/report-output.png`
-
-## Hackathon Pitch
+## Positioning
 
 VentureSwarm is a decentralized startup-intelligence infrastructure layer:
 
