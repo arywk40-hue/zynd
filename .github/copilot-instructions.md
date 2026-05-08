@@ -49,3 +49,35 @@ Console logs should make heartbeat activity visible, for example:
 ```
 
 The project should demonstrate distributed liveness behavior that is automatic, resilient, visible in logs, integrated into discovery and failover, and production-clean.
+
+## Webhooks And Agent Communication
+
+Use the ZyndAI SDK message model for inter-agent communication. Do not create simplified message objects or fake transport payloads.
+
+Required agent endpoints:
+
+- `POST /webhook` for async fire-and-forget task delivery
+- `POST /webhook/sync` for blocking request-response task delivery
+- `GET /health` for health and liveness reporting
+
+The orchestrator should primarily use `/webhook/sync` for structured startup intelligence tasks and must send `zyndai_agent.message.AgentMessage` payloads with:
+
+- `sender_id`
+- `sender_public_key`
+- `receiver_id`
+- `conversation_id`
+- `message_type`
+- `metadata`
+- `in_reply_to`
+
+Agents must register a real SDK message handler with `agent.on_message(...)` and route webhook requests through that SDK-backed handler logic. Keep sync and async webhook handling consistent with the same registered handler.
+
+The orchestrator must:
+
+- verify `/health` before dispatch
+- avoid unhealthy agents
+- dispatch subtasks concurrently with `asyncio.gather(...)`
+- call agents through `agent.x402_processor.post(...)`
+- rediscover and retry when an agent times out, returns unhealthy, fails a webhook response, or disconnects heartbeat
+
+The communication layer should log incoming requests, outgoing requests, sync versus async calls, retries, failovers, and response latency.

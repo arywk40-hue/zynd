@@ -107,6 +107,9 @@ The implementation uses real SDK APIs/classes:
 - All subtasks execute concurrently with `await asyncio.gather(...)`
 - If an agent fails, orchestrator retries with the next ranked candidate
 - If 402 is returned (premium funding agent), orchestrator retries with payment token
+- `/webhook` accepts async fire-and-forget messages with `202 Accepted`
+- `/health` is checked before dispatch so unhealthy agents are skipped
+- Outbound calls use the SDK x402 processor and SDK `AgentMessage` structure
 
 ## Heartbeat And Liveness
 

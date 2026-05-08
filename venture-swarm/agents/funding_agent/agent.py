@@ -5,19 +5,21 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import BackgroundTasks, FastAPI, Header, HTTPException
 from zyndai_agent.agent import ZyndAIAgent
-from zyndai_agent.message import AgentMessage
 
 from shared.config import get_settings
 from shared.schemas import AgentTaskResponse
 from shared.utils import get_logger, setup_logging
 from shared.zynd_runtime import (
+    WebhookRuntimeState,
+    async_webhook_response,
     build_sdk_agent,
-    heartbeat_connected,
-    sdk_agent_id,
+    build_startup_task_processor,
+    sdk_health,
     start_sdk_runtime,
     stop_sdk_runtime,
+    sync_webhook_response,
 )
 
 
@@ -56,11 +58,13 @@ def _build_data(_: str) -> list[dict]:
 
 agent: ZyndAIAgent | None = None
 _agent_config: dict = {}
+_runtime_state = WebhookRuntimeState.create()
+_process_message = None
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    global agent, _agent_config
+    global agent, _agent_config, _process_message
     _agent_config = _load_agent_config()
 
     agent = build_sdk_agent(
@@ -74,7 +78,12 @@ async def lifespan(_: FastAPI):
         price=(f"${_premium_cost():.2f}" if _premium_required() else None),
     )
 
-    agent.set_custom_agent(lambda text: json.dumps(_build_data(text), ensure_ascii=False))
+    _process_message = build_startup_task_processor(
+        agent=agent,
+        capability="funding-analysis",
+        build_data=_build_data,
+        base_notes=["No funding data source configured."],
+    )
     start_sdk_runtime(agent)
     log.info("[Heartbeat] %s connected to registry", agent.agent_config.name)
 
@@ -90,11 +99,28 @@ app = FastAPI(title="Funding Intelligence Agent", version="0.2.0", lifespan=life
 
 @app.get("/health")
 async def health() -> dict:
-    return {
-        "status": "healthy",
-        "agent_id": sdk_agent_id(agent),
-        "heartbeat_connected": heartbeat_connected(agent),
-    }
+    return await sdk_health(agent, _runtime_state)
+
+
+@app.post("/webhook", status_code=202)
+async def webhook(
+    payload: dict,
+    background_tasks: BackgroundTasks,
+    x_payment_token: str | None = Header(default=None),
+) -> dict:
+    assert _process_message is not None
+    if _premium_required() and not x_payment_token:
+        raise HTTPException(
+            status_code=402,
+            detail={"error": "payment_required", "cost_usd": _premium_cost(), "pay_to": "X-Payment-Token"},
+        )
+    return await async_webhook_response(
+        agent=agent,
+        payload=payload,
+        state=_runtime_state,
+        process_message=_process_message,
+        background_tasks=background_tasks,
+    )
 
 
 @app.post("/webhook/sync", response_model=AgentTaskResponse)
@@ -108,23 +134,11 @@ async def webhook_sync(payload: dict, x_payment_token: str | None = Header(defau
             detail={"error": "payment_required", "cost_usd": cost, "pay_to": "X-Payment-Token"},
         )
 
-    msg = AgentMessage.from_dict(payload)
-    instruction = str((msg.metadata or {}).get("instruction", ""))
-    task_id = str((msg.metadata or {}).get("task_id", msg.message_id))
-
-    raw = agent.invoke(f"{msg.content}\nInstruction: {instruction}" if instruction else msg.content)
-    data = json.loads(raw)
-
-    notes = ["No funding data source configured."]
-    if x_payment_token:
-        notes.append("Payment token received.")
-
-    response = AgentTaskResponse(
-        task_id=task_id,
-        agent_id=sdk_agent_id(agent) or "unknown",
-        agent_name=agent.agent_config.name,
-        capability="funding-analysis",
-        data=data,
-        notes=notes,
+    assert _process_message is not None
+    return await sync_webhook_response(
+        agent=agent,
+        payload=payload,
+        state=_runtime_state,
+        process_message=_process_message,
+        extra_notes=(["Payment token received."] if x_payment_token else None),
     )
-    return response

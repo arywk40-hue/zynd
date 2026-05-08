@@ -4,7 +4,8 @@ import asyncio
 from dataclasses import dataclass
 
 import httpx
-
+import requests
+from zyndai_agent.agent import ZyndAIAgent
 from zyndai_agent.message import AgentMessage
 
 from orchestrator.reputation import ReputationStore
@@ -23,15 +24,54 @@ class DispatchResult:
     failovers: int
 
 
-async def _call_agent(*, sender_id: str, candidate: CandidateAgent, task: Subtask, query: str, payment_token: str | None) -> AgentTaskResponse:
+class AgentDispatchHTTPError(RuntimeError):
+    def __init__(self, status_code: int, body: str) -> None:
+        super().__init__(f"agent returned HTTP {status_code}: {body}")
+        self.status_code = status_code
+        self.body = body
+
+
+async def _candidate_healthy(candidate: CandidateAgent) -> bool:
+    health_url = f"{str(candidate.agent_url).rstrip('/')}/health"
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(3.0)) as client:
+            response = await client.get(health_url)
+        if response.status_code != 200:
+            log.warning("[Health] %s returned HTTP %s", candidate.name, response.status_code)
+            return False
+        payload = response.json()
+        heartbeat_ok = payload.get("heartbeat_connected")
+        is_healthy = payload.get("status") in {"healthy", "ok"} and heartbeat_ok is not False
+        if not is_healthy:
+            log.warning("[Health] %s unhealthy: %s", candidate.name, payload)
+        return bool(is_healthy)
+    except Exception as e:  # noqa: BLE001
+        log.warning("[Health] %s health check failed: %s", candidate.name, e)
+        return False
+
+
+async def _call_agent(
+    *,
+    sender_agent: ZyndAIAgent,
+    candidate: CandidateAgent,
+    task: Subtask,
+    query: str,
+    payment_token: str | None,
+    conversation_id: str,
+    in_reply_to: str | None,
+) -> AgentTaskResponse:
     headers: dict[str, str] = {"Content-Type": "application/json"}
     if payment_token:
         headers["X-Payment-Token"] = payment_token
 
     msg = AgentMessage(
         content=query,
-        sender_id=sender_id,
+        sender_id=sender_agent.entity_id,
+        sender_public_key=sender_agent.keypair.public_key_string,
+        receiver_id=candidate.agent_id,
         message_type="query",
+        conversation_id=conversation_id,
+        in_reply_to=in_reply_to,
         metadata={
             "task_id": task.id,
             "instruction": task.instruction,
@@ -40,22 +80,36 @@ async def _call_agent(*, sender_id: str, candidate: CandidateAgent, task: Subtas
     )
 
     sync_url = f"{str(candidate.agent_url).rstrip('/')}/webhook/sync"
-    async with httpx.AsyncClient(timeout=httpx.Timeout(12.0)) as client:
-        r = await client.post(sync_url, json=msg.to_dict(), headers=headers)
-        if r.status_code == 402:
-            raise httpx.HTTPStatusError("payment required", request=r.request, response=r)
-        r.raise_for_status()
-        return AgentTaskResponse.model_validate(r.json())
+    log.info("[Webhook] POST %s", sync_url)
+
+    def _post():
+        return sender_agent.x402_processor.post(sync_url, json=msg.to_dict(), headers=headers, timeout=12)
+
+    try:
+        response = await asyncio.to_thread(_post)
+    except requests.HTTPError as e:
+        if e.response is not None:
+            raise AgentDispatchHTTPError(e.response.status_code, e.response.text) from e
+        raise
+    if response.status_code == 200:
+        return AgentTaskResponse.model_validate(response.json())
+    if response.status_code == 202:
+        raise AgentDispatchHTTPError(response.status_code, "sync endpoint returned async accepted")
+    if response.status_code in {400, 401, 402, 403, 500}:
+        raise AgentDispatchHTTPError(response.status_code, response.text)
+    raise AgentDispatchHTTPError(response.status_code, response.text)
 
 
 async def dispatch_with_failover(
     *,
-    sender_id: str,
+    sender_agent: ZyndAIAgent,
     task: Subtask,
     query: str,
     candidates: list[CandidateAgent],
     store: ReputationStore,
     payment_token: str | None,
+    conversation_id: str,
+    in_reply_to: str | None = None,
 ) -> DispatchResult:
     if not candidates:
         raise RuntimeError(f"no candidates for capability={task.capability}")
@@ -70,32 +124,41 @@ async def dispatch_with_failover(
             log.warning("[Failover] Trying replacement %s...", candidate.name)
             failovers += 1
 
+        if not await _candidate_healthy(candidate):
+            store.update_observation(candidate.agent_id, latency_s=3.0, success=False)
+            log.warning("[Failover] Discovering replacement %s agent", task.capability)
+            continue
+
         token_for_attempt: str | None = None
         try:
             tr = await timed(
                 _call_agent(
-                    sender_id=sender_id,
+                    sender_agent=sender_agent,
                     candidate=candidate,
                     task=task,
                     query=query,
                     payment_token=token_for_attempt,
+                    conversation_id=conversation_id,
+                    in_reply_to=in_reply_to,
                 )
             )
             store.update_observation(candidate.agent_id, latency_s=tr.latency_s, success=True)
             return DispatchResult(response=tr.value, used_agent=candidate, latency_s=tr.latency_s, failovers=failovers)
-        except httpx.HTTPStatusError as e:
+        except AgentDispatchHTTPError as e:
             store.update_observation(candidate.agent_id, latency_s=2.5, success=False)
             last_exc = e
-            if e.response is not None and e.response.status_code == 402 and payment_token:
+            if e.status_code == 402 and payment_token:
                 log.warning("[Payment] %s requires payment; retrying with token...", candidate.name)
                 try:
                     tr = await timed(
                         _call_agent(
-                            sender_id=sender_id,
+                            sender_agent=sender_agent,
                             candidate=candidate,
                             task=task,
                             query=query,
                             payment_token=payment_token,
+                            conversation_id=conversation_id,
+                            in_reply_to=in_reply_to,
                         )
                     )
                     store.update_observation(candidate.agent_id, latency_s=tr.latency_s, success=True)
@@ -103,6 +166,7 @@ async def dispatch_with_failover(
                 except Exception as e2:  # noqa: BLE001
                     last_exc = e2
                     continue
+            log.warning("[Error] %s webhook failed: %s", candidate.name, e)
             continue
         except (httpx.TransportError, asyncio.TimeoutError, Exception) as e:  # noqa: BLE001
             store.update_observation(candidate.agent_id, latency_s=3.0, success=False)

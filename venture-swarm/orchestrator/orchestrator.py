@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import uuid
 
 from zyndai_agent.agent import AgentConfig, ZyndAIAgent
 
@@ -64,6 +65,7 @@ class VentureSwarmOrchestrator:
 
     async def run(self, query: str) -> StartupReport:
         tasks = plan(query)
+        conversation_id = str(uuid.uuid4())
 
         discovery_results = await asyncio.gather(
             *[
@@ -82,12 +84,13 @@ class VentureSwarmOrchestrator:
             candidates = by_capability.get(t.capability, [])
             try:
                 return await dispatch_with_failover(
-                    sender_id=self._agent.agent_id,
+                    sender_agent=self._agent,
                     task=t,
                     query=tasks.query,
                     candidates=candidates,
                     store=self._rep,
                     payment_token=payment_token,
+                    conversation_id=conversation_id,
                 )
             except Exception as e:  # noqa: BLE001
                 log.warning("[Failover] Primary pool failed for %s: %s", t.capability, e)
@@ -95,12 +98,13 @@ class VentureSwarmOrchestrator:
                 tried = {c.agent_id for c in candidates}
                 remaining = [c for c in fresh if c.agent_id not in tried] or fresh
                 return await dispatch_with_failover(
-                    sender_id=self._agent.agent_id,
+                    sender_agent=self._agent,
                     task=t,
                     query=tasks.query,
                     candidates=remaining,
                     store=self._rep,
                     payment_token=payment_token,
+                    conversation_id=conversation_id,
                 )
 
         dispatches = await asyncio.gather(*[_run_task(t) for t in tasks.tasks])
@@ -113,6 +117,7 @@ class VentureSwarmOrchestrator:
                 "agent_id": d.used_agent.agent_id,
                 "latency_s": round(d.latency_s, 3),
                 "failovers": d.failovers,
+                "conversation_id": conversation_id,
             }
             for d in dispatches
         ]
