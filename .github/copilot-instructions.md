@@ -1,5 +1,35 @@
 # VentureSwarm Copilot Instructions
 
+## Product Scope
+
+VentureSwarm is a hackathon application built on top of ZyndAI, not an implementation of the Zynd platform.
+
+Prioritize only capabilities that materially improve the demo:
+
+- Agent Cards
+- Webhooks and agent communication
+- Heartbeat and liveness
+- Search and discovery
+- SDK-managed signed identities
+- Monitoring logs and latency metrics
+- Reputation scoring
+- Optional agent-to-agent messaging
+- Optional x402 premium agents
+
+Do not implement platform internals:
+
+- mesh networking
+- gossip protocols
+- DHT/Kademlia
+- registry node architecture
+- storage engines or schemas
+- HD key derivation
+- Ed25519 internals
+- deployer internals
+- vector search engine internals
+- persona runners
+- dashboards
+
 ## Heartbeat And Liveness Requirements
 
 Implement ZyndAI heartbeat and liveness through the official SDK runtime.
@@ -81,3 +111,25 @@ The orchestrator must:
 - rediscover and retry when an agent times out, returns unhealthy, fails a webhook response, or disconnects heartbeat
 
 The communication layer should log incoming requests, outgoing requests, sync versus async calls, retries, failovers, and response latency.
+
+## Agent Cards
+
+Each agent must expose an application-facing agent card at `/.well-known/agent.json`. The card must include:
+
+- capabilities
+- tags
+- supported endpoints
+- SDK identity/public key
+- optional pricing metadata
+
+Use SDK-generated identity/card data where available. Do not hand-roll cryptography.
+
+## Search And Discovery
+
+The orchestrator should express discovery at the application level as:
+
+```python
+search_agents(keyword="funding-analysis")
+```
+
+The implementation may adapt this to the currently installed SDK discovery API, but it must remain heartbeat-aware and filter active agents only.

@@ -16,6 +16,7 @@ from shared.zynd_runtime import (
     async_webhook_response,
     build_sdk_agent,
     build_startup_task_processor,
+    sdk_agent_card,
     sdk_health,
     start_sdk_runtime,
     stop_sdk_runtime,
@@ -88,6 +89,11 @@ app = FastAPI(title="Market Gap Agent", version="0.2.0", lifespan=lifespan)
 @app.get("/health")
 async def health() -> dict:
     return await sdk_health(agent, _runtime_state)
+
+
+@app.get("/.well-known/agent.json")
+async def agent_card() -> dict:
+    return sdk_agent_card(agent)
 
 
 @app.post("/webhook", status_code=202)

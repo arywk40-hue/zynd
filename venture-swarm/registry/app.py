@@ -113,7 +113,7 @@ def _entry_to_search_result(entry: _Entry, enrich: bool) -> dict[str, Any]:
                 "invoke": f"{entry.entity_url.rstrip('/')}/webhook/sync",
                 "invoke_async": f"{entry.entity_url.rstrip('/')}/webhook",
                 "health": f"{entry.entity_url.rstrip('/')}/health",
-                "agent_card": f"{entry.entity_url.rstrip('/')}/.well-known/agent-card.json",
+                "agent_card": f"{entry.entity_url.rstrip('/')}/.well-known/agent.json",
             },
         }
     return result
@@ -123,8 +123,9 @@ app = FastAPI(title="VentureSwarm Directory", version="0.2.0")
 
 
 @app.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok", "agents": str(len(_agents))}
+async def health() -> dict[str, int | str]:
+    active_agents = sum(1 for entry in _agents.values() if entry.status == "active")
+    return {"status": "ok", "agents": len(_agents), "active_agents": active_agents}
 
 
 @app.post("/v1/entities", response_model=RegisterAgentV1Response)

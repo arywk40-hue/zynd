@@ -10,13 +10,14 @@ from typing import Any, Callable
 
 import httpx
 from fastapi import BackgroundTasks, HTTPException
+from zyndai_agent import dns_registry
 from zyndai_agent.agent import AgentConfig, ZyndAIAgent
 from zyndai_agent.base import SkillConfig
-from zyndai_agent.ed25519_identity import generate_keypair, save_keypair
+from zyndai_agent.ed25519_identity import generate_keypair, save_keypair, sign
 from zyndai_agent.message import AgentMessage
 
 from shared.config import Settings
-from shared.schemas import AgentTaskResponse
+from shared.schemas import AgentTaskResponse, CandidateAgent
 from shared.utils import get_logger
 
 
@@ -118,6 +119,123 @@ def heartbeat_connected(agent: ZyndAIAgent | None) -> bool:
     )
 
 
+def sdk_agent_card(agent: ZyndAIAgent | None) -> dict[str, Any]:
+    if agent is None:
+        raise HTTPException(status_code=503, detail="agent runtime is not ready")
+
+    base_url = str(agent.agent_config.entity_url or "").rstrip("/")
+    skills = [skill.id for skill in (agent.agent_config.skills or [])]
+    pricing = _pricing_from_agent(agent)
+
+    card: dict[str, Any] = {
+        "agent_id": sdk_agent_id(agent),
+        "public_key": agent.keypair.public_key_b64,
+        "name": agent.agent_config.name,
+        "description": agent.agent_config.description,
+        "category": agent.agent_config.category,
+        "tags": agent.agent_config.tags or [],
+        "capabilities": skills,
+        "endpoints": {
+            "invoke": f"{base_url}/webhook/sync",
+            "invoke_async": f"{base_url}/webhook",
+            "health": f"{base_url}/health",
+            "agent_card": f"{base_url}/.well-known/agent.json",
+        },
+        "status": "active" if heartbeat_connected(agent) else "inactive",
+        "updated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+    }
+    if pricing:
+        card["pricing"] = pricing
+
+    card["signature"] = _sign_agent_card(agent, card)
+    return card
+
+
+def _pricing_from_agent(agent: ZyndAIAgent) -> dict[str, str] | None:
+    price = agent.agent_config.price
+    if not price:
+        return None
+
+    parts = price.strip().split()
+    return {
+        "per_call": parts[0],
+        "currency": parts[1] if len(parts) > 1 else "USD",
+    }
+
+
+def _sign_agent_card(agent: ZyndAIAgent, card: dict[str, Any]) -> str:
+    signable = {key: value for key, value in card.items() if key != "signature"}
+    message = json.dumps(signable, sort_keys=True).encode("utf-8")
+    return sign(agent.keypair.private_key, message).removeprefix("ed25519:")
+
+
+def sdk_a2a_card(agent: ZyndAIAgent | None) -> dict[str, Any]:
+    if agent is None:
+        raise HTTPException(status_code=503, detail="agent runtime is not ready")
+
+    card = agent._build_card()  # noqa: SLF001 - SDK owns the A2A runtime card shape.
+    base_url = str(agent.agent_config.entity_url or "").rstrip("/")
+    skills = [skill.id for skill in (agent.agent_config.skills or [])]
+    card["capability_summary"] = {"skills": skills}
+    card["tags"] = agent.agent_config.tags or []
+    card["endpoints"] = {
+        "webhook": f"{base_url}/webhook",
+        "webhook_sync": f"{base_url}/webhook/sync",
+        "health": f"{base_url}/health",
+        "agent_card": f"{base_url}/.well-known/agent.json",
+    }
+    card["identity"] = {
+        "agent_id": sdk_agent_id(agent),
+        "public_key": agent.keypair.public_key_string,
+        "verified_by": "ZyndAI SDK",
+    }
+    return card
+
+
+def search_agents(
+    *,
+    registry_url: str,
+    keyword: str,
+    skills: list[str] | None = None,
+    status: str = "active",
+    limit: int = 10,
+) -> list[CandidateAgent]:
+    result = dns_registry.search_entities(
+        registry_url=registry_url,
+        query=keyword,
+        skills=skills or [keyword],
+        status=status,
+        entity_type="agent",
+        max_results=limit,
+        federated=False,
+        enrich=False,
+    )
+
+    candidates: list[CandidateAgent] = []
+    for item in result.get("results", []):
+        item_status = str(item.get("status", "unknown"))
+        if status != "any" and item_status != status:
+            continue
+
+        agent_url = str(item.get("agent_url") or item.get("entity_url") or "").rstrip("/")
+        if not agent_url:
+            continue
+
+        candidates.append(
+            CandidateAgent(
+                agent_id=str(item.get("agent_id") or item.get("entity_id") or "unknown"),
+                name=str(item.get("name", "unknown-agent")),
+                agent_url=agent_url,
+                search_score=float(item.get("score", 0.0) or 0.0),
+                status=item_status,
+                last_heartbeat=item.get("last_heartbeat"),
+                tags=list(item.get("tags", []) or []),
+            )
+        )
+
+    return candidates
+
+
 @dataclass
 class WebhookRuntimeState:
     started_at: float
@@ -151,6 +269,7 @@ async def sdk_health(agent: ZyndAIAgent | None, state: WebhookRuntimeState) -> d
     return {
         "status": "healthy" if agent else "starting",
         "agent_id": sdk_agent_id(agent),
+        "identity_verified": bool(agent.keypair.public_key_string) if agent else False,
         "uptime_seconds": round(time.monotonic() - state.started_at, 3),
         "webhook_requests_total": state.webhook_requests_total,
         "last_heartbeat": await registry_last_heartbeat(agent),

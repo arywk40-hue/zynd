@@ -8,12 +8,25 @@ Autonomous Startup Intelligence Swarm using the **real ZyndAI Agent SDK**.
 User Query
   ↓
 Orchestrator Agent (planner → discovery → ranking → async dispatch → aggregation)
-  ↓                             ↘ heartbeat-aware registry search
+  ↓                             ↘ search_agents(keyword="funding-analysis")
 Zynd-compatible Directory (/v1/agents, /v1/search)
   ↑                                      ↓
 Agents (trend, funding, competitor, market-gap, risk)
   └─ /webhook/sync + /.well-known/agent.json (SDK runtime)
 ```
+
+## Hackathon Scope
+
+VentureSwarm is an application built on top of ZyndAI. It intentionally focuses on the Zynd capabilities that make the demo stronger:
+
+- Agent Cards for discoverable capabilities, tags, endpoints, identity, and optional pricing
+- Webhooks for sync and async agent communication
+- Heartbeat and liveness for active/offline routing
+- Search and discovery for dynamic orchestration
+- SDK-managed signed identities and verified communication
+- Rich logs for dispatch, heartbeat, failover, latency, and active agent counts
+
+It does not implement Zynd platform internals such as mesh networking, gossip, DHT, registry node architecture, storage engines, HD key derivation, Ed25519 internals, deployer internals, or search engine internals.
 
 ## Tech Stack
 
@@ -64,6 +77,7 @@ venture-swarm/
 │   ├── schemas.py
 │   ├── utils.py
 │   ├── logging_config.py
+│   ├── zynd_runtime.py
 │   └── config.py
 ├── .env.example
 ├── requirements.txt
@@ -78,9 +92,23 @@ The implementation uses real SDK APIs/classes:
 - `from zyndai_agent.agent import AgentConfig, ZyndAIAgent`
 - `from zyndai_agent.message import AgentMessage`
 - SDK runtime startup for registration, A2A sidecar, and heartbeat
-- `dns_registry.search_entities(..., status="active")` for runtime discovery
+- `search_agents(keyword="...")` for heartbeat-aware runtime discovery
 - `invoke(...)` for per-agent reasoning functions
 - `/webhook/sync` for inter-agent request/response messages
+
+## Agent Cards
+
+Each agent exposes:
+
+- `/.well-known/agent.json`
+- `agent_id` and `public_key`
+- `name`, `description`, `category`, and searchable `tags`
+- `capabilities`
+- supported endpoints: `invoke`, `invoke_async`, `health`, and `agent_card`
+- optional `pricing` metadata for premium agents
+- `status`, `updated_at`, and SDK-signed `signature`
+
+The SDK identity/keypair signs the card. Clients can fetch the card before invoking an agent, verify the signature, then call the advertised `invoke` or `invoke_async` endpoint.
 
 ## Registration Flow
 
@@ -93,7 +121,7 @@ The implementation uses real SDK APIs/classes:
 ## Discovery Flow
 
 1. Orchestrator decomposes query into capability subtasks
-2. For each subtask, orchestrator searches for active registry entries
+2. For each subtask, orchestrator calls `search_agents(keyword="<capability>")`
 3. Candidates are ranked by blended score:
    - discovery score
    - latency
@@ -117,6 +145,17 @@ The implementation uses real SDK APIs/classes:
 - `/health` includes `agent_id` and `heartbeat_connected`.
 - Discovery requests active agents only and ignores offline registry entries.
 - Shutdown calls the SDK runtime stop path so heartbeat sessions close cleanly.
+
+## Monitoring Logs
+
+The runtime logs show:
+
+- `[Heartbeat]` connection, active, reconnecting, and shutdown events
+- `[Discovery]` active-agent filtering and candidate counts
+- `[Dispatch]` selected target agents
+- `[Webhook]` outgoing and incoming agent messages
+- `[Failover]` replacement discovery
+- `[Response]` per-agent latency
 
 ## Output Shape
 

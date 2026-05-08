@@ -3,7 +3,7 @@
 ## System Overview
 The Autonomous Startup Intelligence Swarm is a multi-tier, decentralized AI ecosystem. Rather than relying on a single monolithic LLM, this system utilizes an **Orchestrator Agent** to dynamically discover, hire, and manage a network of specialized sub-agents using the Zynd Python SDK. 
 
-This architecture demonstrates autonomous networking, parallel execution, and AI-to-AI service coordination.
+This project is an application built on top of ZyndAI, not a reimplementation of Zynd infrastructure. It demonstrates autonomous networking, parallel execution, heartbeat-aware routing, and AI-to-AI service coordination through the SDK capabilities that matter for the hackathon demo.
 
 ---
 
@@ -68,6 +68,12 @@ This project heavily leverages the unique features of the Zynd SDK to prove the 
 2. **Dynamic Discovery:** The Orchestrator does not hardcode worker IPs. It uses `search_agents(keyword="target-skill")` to find workers at runtime.
 3. **Agent-to-Agent Comms:** All task delegation occurs via `/webhook/sync`.
 4. **AI Economy:** Uses HTTP 402 Payment Required as the payment-required signal for premium data agents.
+
+---
+
+## Explicit Non-Goals
+
+VentureSwarm does not implement mesh networking, gossip, DHT/Kademlia, registry node internals, storage engines, HD key derivation, Ed25519 internals, deployer internals, or custom search engine infrastructure. Those are Zynd platform concerns; this repo focuses on agent cards, webhooks, heartbeat, discovery, signed identities, reputation, and orchestration logs.
 
 ---
 

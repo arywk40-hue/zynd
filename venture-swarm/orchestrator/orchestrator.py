@@ -118,6 +118,8 @@ class VentureSwarmOrchestrator:
                 "latency_s": round(d.latency_s, 3),
                 "failovers": d.failovers,
                 "conversation_id": conversation_id,
+                "agent_status": d.used_agent.status,
+                "last_heartbeat": d.used_agent.last_heartbeat,
             }
             for d in dispatches
         ]
