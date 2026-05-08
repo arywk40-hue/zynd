@@ -78,6 +78,7 @@ class _Entry:
 
 
 _agents: Dict[str, _Entry] = {}
+_started_at = time.monotonic()
 
 
 def _utc_now_iso() -> str:
@@ -140,9 +141,15 @@ app = FastAPI(title="VentureSwarm Directory", version="0.2.0")
 
 
 @app.get("/health")
-async def health() -> dict[str, int | str]:
+async def health() -> dict[str, int | float | str]:
     active_agents = sum(1 for entry in _agents.values() if entry.status == "active")
-    return {"status": "ok", "agents": len(_agents), "active_agents": active_agents}
+    log.info("[Metrics] active_agents=%d registered_agents=%d", active_agents, len(_agents))
+    return {
+        "status": "ok",
+        "agents": len(_agents),
+        "active_agents": active_agents,
+        "uptime_seconds": round(time.monotonic() - _started_at, 3),
+    }
 
 
 @app.post("/v1/entities", response_model=RegisterAgentV1Response)
@@ -306,3 +313,5 @@ async def heartbeat_ws(websocket: WebSocket, entity_id: str) -> None:
         entry.status = "inactive"
         entry.updated_mono = time.monotonic()
         log.warning("[Heartbeat] %s reconnecting...", entry.name)
+        log.warning("[CRASH] %s heartbeat disconnected", entry.name)
+        log.warning("[Recovery] %s removed from active registry pool", entry.name)

@@ -16,6 +16,7 @@ from shared.zynd_runtime import (
     async_webhook_response,
     build_sdk_agent,
     build_startup_task_processor,
+    install_shutdown_handlers,
     sdk_agent_card,
     sdk_health,
     start_sdk_runtime,
@@ -61,6 +62,14 @@ agent: ZyndAIAgent | None = None
 _agent_config: dict = {}
 _runtime_state = WebhookRuntimeState.create()
 _process_message = None
+
+
+def _stop_runtime() -> None:
+    if agent is not None:
+        stop_sdk_runtime(agent)
+
+
+install_shutdown_handlers("funding-agent", _stop_runtime)
 
 
 @asynccontextmanager

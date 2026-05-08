@@ -157,12 +157,40 @@ The SDK identity/keypair signs the card. Clients can fetch the card before invok
 
 The runtime logs show:
 
+- `[Planner]` task decomposition
 - `[Heartbeat]` connection, active, reconnecting, and shutdown events
-- `[Discovery]` active-agent filtering and candidate counts
+- `[Discovery]` runtime search filters and active-agent candidate counts
+- `[Ranking]` trust, latency, heartbeat freshness, and score
+- `[Selection]` chosen target agent
 - `[Dispatch]` selected target agents
 - `[Webhook]` outgoing and incoming agent messages
 - `[Failover]` replacement discovery
+- `[Recovery]` retry/rerouting decisions
+- `[CRASH]` heartbeat disconnects and unreachable services
+- `[Health]` startup, health checks, and clean shutdown
 - `[Response]` per-agent latency
+- `[Metrics]` active agents, average latency, failures, success rate, and orchestration time
+
+Each agent `/health` response includes:
+
+- `status`
+- `agent_id`
+- `heartbeat_connected`
+- `uptime_seconds`
+- `webhook_requests_total`
+- `webhook_failures_total`
+- `average_latency_s`
+- `success_rate`
+- `last_heartbeat`
+
+The orchestrator `/health` response includes:
+
+- `tasks_dispatched`
+- `failovers_triggered`
+- `active_agents`
+- `orchestrations_total`
+- `average_orchestration_time_s`
+- `last_error`
 
 ## Output Shape
 

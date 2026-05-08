@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import time
 import uuid
+from dataclasses import dataclass
 
 from zyndai_agent.agent import AgentConfig, ZyndAIAgent
 
@@ -26,10 +28,32 @@ from shared.zynd_runtime import (
 log = get_logger("Orchestrator")
 
 
+@dataclass
+class OrchestratorMetrics:
+    started_at: float
+    tasks_dispatched: int = 0
+    failovers_triggered: int = 0
+    active_agents_last_run: int = 0
+    orchestrations_total: int = 0
+    total_orchestration_latency_s: float = 0.0
+    last_error: str | None = None
+
+    @property
+    def uptime_seconds(self) -> float:
+        return time.monotonic() - self.started_at
+
+    @property
+    def average_orchestration_time_s(self) -> float:
+        if self.orchestrations_total == 0:
+            return 0.0
+        return self.total_orchestration_latency_s / self.orchestrations_total
+
+
 class VentureSwarmOrchestrator:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
         self._rep = ReputationStore()
+        self._metrics = OrchestratorMetrics(started_at=time.monotonic())
         ensure_local_developer_keypair()
 
         registry_url = str(settings.zynd_registry_url or settings.directory_url).rstrip("/")
@@ -51,6 +75,7 @@ class VentureSwarmOrchestrator:
     def start(self) -> None:
         start_sdk_runtime(self._agent)
         log.info("[Heartbeat] venture-swarm-orchestrator connected to registry")
+        log.info("[Health] venture-swarm-orchestrator startup complete")
 
     def stop(self) -> None:
         log.info("[Heartbeat] venture-swarm-orchestrator shutting down")
@@ -61,9 +86,17 @@ class VentureSwarmOrchestrator:
             "status": "healthy",
             "agent_id": sdk_agent_id(self._agent),
             "heartbeat_connected": heartbeat_connected(self._agent),
+            "uptime_seconds": round(self._metrics.uptime_seconds, 3),
+            "tasks_dispatched": self._metrics.tasks_dispatched,
+            "failovers_triggered": self._metrics.failovers_triggered,
+            "active_agents": self._metrics.active_agents_last_run,
+            "orchestrations_total": self._metrics.orchestrations_total,
+            "average_orchestration_time_s": round(self._metrics.average_orchestration_time_s, 3),
+            "last_error": self._metrics.last_error,
         }
 
     async def run(self, query: str) -> StartupReport:
+        started = time.perf_counter()
         tasks = plan(query)
         conversation_id = str(uuid.uuid4())
 
@@ -75,6 +108,10 @@ class VentureSwarmOrchestrator:
         )
 
         by_capability = {tasks.tasks[i].capability: discovery_results[i] for i in range(len(tasks.tasks))}
+        self._metrics.active_agents_last_run = len(
+            {candidate.agent_id for candidates in discovery_results for candidate in candidates}
+        )
+        log.info("[Metrics] active_agents=%d", self._metrics.active_agents_last_run)
 
         payment_token = self._settings.premium_payment_token
         if payment_token:
@@ -93,10 +130,12 @@ class VentureSwarmOrchestrator:
                     conversation_id=conversation_id,
                 )
             except Exception as e:  # noqa: BLE001
+                self._metrics.last_error = str(e)
                 log.warning("[Failover] Primary pool failed for %s: %s", t.capability, e)
                 fresh = await discover_and_rank(orchestrator_agent=self._agent, store=self._rep, capability=t.capability)
                 tried = {c.agent_id for c in candidates}
                 remaining = [c for c in fresh if c.agent_id not in tried] or fresh
+                log.warning("[Recovery] Retrying %s task dispatch with %d candidate(s)", t.capability, len(remaining))
                 return await dispatch_with_failover(
                     sender_agent=self._agent,
                     task=t,
@@ -108,6 +147,8 @@ class VentureSwarmOrchestrator:
                 )
 
         dispatches = await asyncio.gather(*[_run_task(t) for t in tasks.tasks])
+        self._metrics.tasks_dispatched += len(dispatches)
+        self._metrics.failovers_triggered += sum(d.failovers for d in dispatches)
 
         trace = [
             {
@@ -126,7 +167,7 @@ class VentureSwarmOrchestrator:
 
         responses = {d.response.capability: d.response for d in dispatches}
 
-        return aggregate(
+        report = aggregate(
             query=query,
             trend=responses["trend-analysis"],
             funding=responses["funding-analysis"],
@@ -135,3 +176,18 @@ class VentureSwarmOrchestrator:
             risks=responses["risk-analysis"],
             agent_trace=trace,
         )
+        elapsed = time.perf_counter() - started
+        self._metrics.orchestrations_total += 1
+        self._metrics.total_orchestration_latency_s += elapsed
+        self._metrics.last_error = None
+        avg_latency = sum(d.latency_s for d in dispatches) / max(1, len(dispatches))
+        success_rate = self._rep.success_rate()
+        log.info(
+            "[Metrics] active_agents=%d avg_latency=%.3fs failovers=%d success_rate=%.0f%% orchestration_time=%.3fs",
+            self._metrics.active_agents_last_run,
+            avg_latency,
+            sum(d.failovers for d in dispatches),
+            success_rate * 100,
+            elapsed,
+        )
+        return report

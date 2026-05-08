@@ -147,3 +147,28 @@ search_agents(
 Use the official SDK registry search API. Prefer `zyndai_agent.dns_registry.search_agents` when available; on SDK versions where the same real search API is exposed as `search_entities`, use that compatibility path rather than creating fake discovery.
 
 Discovery must remain heartbeat-aware, filter active agents only, enrich Agent Card metadata, and log ranking decisions with trust score, latency, heartbeat freshness, and selected target.
+
+## Monitoring, Logs, And Health
+
+All services must use `rich.logging.RichHandler` through the shared logging setup.
+
+Visible log categories:
+
+- `[Planner]`
+- `[Discovery]`
+- `[Ranking]`
+- `[Selection]`
+- `[Dispatch]`
+- `[Webhook]`
+- `[Response]`
+- `[Heartbeat]`
+- `[Health]`
+- `[Metrics]`
+- `[Error]`
+- `[Failover]`
+- `[Recovery]`
+- `[CRASH]`
+
+Every agent `/health` response must stay lightweight and include `status`, `agent_id`, `heartbeat_connected`, `uptime_seconds`, `webhook_requests_total`, `webhook_failures_total`, `average_latency_s`, `success_rate`, and `last_heartbeat`.
+
+The orchestrator should expose aggregate metrics in `/health`: dispatched tasks, failovers, active agents, total runs, average orchestration time, and last error.

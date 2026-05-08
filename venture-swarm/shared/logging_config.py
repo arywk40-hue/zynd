@@ -10,7 +10,8 @@ def setup_logging(log_level: str) -> None:
         level=log_level.upper(),
         format="%(message)s",
         datefmt="[%X]",
-        handlers=[RichHandler(rich_tracebacks=True, markup=True)],
+        handlers=[RichHandler(rich_tracebacks=True, markup=True, show_path=False)],
+        force=True,
     )
 
 

@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import time
-from inspect import signature
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from inspect import signature
 from pathlib import Path
 from typing import Any, Callable
 
@@ -340,10 +341,59 @@ def search_agents(
 class WebhookRuntimeState:
     started_at: float
     webhook_requests_total: int = 0
+    webhook_failures_total: int = 0
+    webhook_success_total: int = 0
+    total_latency_s: float = 0.0
+    last_request_at: str | None = None
+    last_error: str | None = None
 
     @classmethod
     def create(cls) -> "WebhookRuntimeState":
         return cls(started_at=time.monotonic())
+
+    def record_success(self, latency_s: float) -> None:
+        self.webhook_success_total += 1
+        self.total_latency_s += latency_s
+        self.last_request_at = _utc_now_iso()
+        self.last_error = None
+
+    def record_failure(self, error: str) -> None:
+        self.webhook_failures_total += 1
+        self.last_request_at = _utc_now_iso()
+        self.last_error = error
+
+    @property
+    def average_latency_s(self) -> float:
+        if self.webhook_success_total == 0:
+            return 0.0
+        return self.total_latency_s / self.webhook_success_total
+
+    @property
+    def success_rate(self) -> float:
+        completed = self.webhook_success_total + self.webhook_failures_total
+        if completed == 0:
+            return 1.0
+        return self.webhook_success_total / completed
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def install_shutdown_handlers(component: str, stop_callback: Callable[[], None]) -> None:
+    def _handler(sig, _frame):
+        log.info("[Health] %s received signal %s; shutting down cleanly", component, sig)
+        try:
+            stop_callback()
+        except Exception as e:  # noqa: BLE001
+            log.error("[Error] %s shutdown failed: %s", component, e)
+        os._exit(0)
+
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            signal.signal(sig, _handler)
+        except ValueError:
+            pass
 
 
 async def registry_last_heartbeat(agent: ZyndAIAgent | None) -> str | None:
@@ -356,7 +406,7 @@ async def registry_last_heartbeat(agent: ZyndAIAgent | None) -> str | None:
 
     url = f"{str(agent.agent_config.registry_url).rstrip('/')}/v1/entities/{agent_id}"
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(2.0)) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(1.0)) as client:
             response = await client.get(url)
         if response.status_code == 200:
             return response.json().get("last_heartbeat")
@@ -372,6 +422,11 @@ async def sdk_health(agent: ZyndAIAgent | None, state: WebhookRuntimeState) -> d
         "identity_verified": bool(agent.keypair.public_key_string) if agent else False,
         "uptime_seconds": round(time.monotonic() - state.started_at, 3),
         "webhook_requests_total": state.webhook_requests_total,
+        "webhook_failures_total": state.webhook_failures_total,
+        "average_latency_s": round(state.average_latency_s, 3),
+        "success_rate": round(state.success_rate, 4),
+        "last_request_at": state.last_request_at,
+        "last_error": state.last_error,
         "last_heartbeat": await registry_last_heartbeat(agent),
         "heartbeat_connected": heartbeat_connected(agent),
     }
@@ -433,6 +488,8 @@ async def sync_webhook_response(
     try:
         message = AgentMessage.from_dict(payload)
     except Exception as e:  # noqa: BLE001
+        state.record_failure(str(e))
+        log.error("[Error] Invalid AgentMessage payload: %s", e)
         raise HTTPException(status_code=400, detail=f"invalid AgentMessage payload: {e}") from e
 
     log.info("[Webhook] Received request from %s", message.sender_id)
@@ -442,13 +499,25 @@ async def sync_webhook_response(
         response = await _maybe_to_thread(process_message, message)
         if extra_notes:
             response = response.model_copy(update={"notes": [*response.notes, *extra_notes]})
-    except HTTPException:
+    except HTTPException as e:
+        state.record_failure(str(e.detail))
+        log.error("[Error] Webhook sync failed: %s", e.detail)
         raise
     except Exception as e:  # noqa: BLE001
+        state.record_failure(str(e))
+        log.error("[Error] Webhook sync failed: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
     elapsed = time.perf_counter() - started
+    state.record_success(elapsed)
     log.info("[Response] Completed in %.3fs", elapsed)
+    log.info(
+        "[Metrics] requests=%d avg_latency=%.3fs failures=%d success_rate=%.0f%%",
+        state.webhook_requests_total,
+        state.average_latency_s,
+        state.webhook_failures_total,
+        state.success_rate * 100,
+    )
     return response
 
 
@@ -467,10 +536,12 @@ async def async_webhook_response(
     try:
         message = AgentMessage.from_dict(payload)
     except Exception as e:  # noqa: BLE001
+        state.record_failure(str(e))
+        log.error("[Error] Invalid async AgentMessage payload: %s", e)
         raise HTTPException(status_code=400, detail=f"invalid AgentMessage payload: {e}") from e
 
     log.info("[Webhook] Accepted async request from %s", message.sender_id)
-    background_tasks.add_task(process_message, message)
+    background_tasks.add_task(_run_async_task_with_metrics, process_message, message, state)
     return {
         "status": "accepted",
         "message_id": message.message_id,
@@ -483,3 +554,17 @@ async def _maybe_to_thread(func, *args):
     import asyncio
 
     return await asyncio.to_thread(func, *args)
+
+
+def _run_async_task_with_metrics(process_message, message: AgentMessage, state: WebhookRuntimeState) -> None:
+    started = time.perf_counter()
+    try:
+        process_message(message)
+    except Exception as e:  # noqa: BLE001
+        state.record_failure(str(e))
+        log.error("[Error] Async webhook task failed: %s", e)
+        return
+
+    elapsed = time.perf_counter() - started
+    state.record_success(elapsed)
+    log.info("[Response] Async task completed in %.3fs", elapsed)

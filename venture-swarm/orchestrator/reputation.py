@@ -61,3 +61,8 @@ class ReputationStore:
             quality_score=prev.quality_score,
             reliability=new_reliability,
         )
+
+    def success_rate(self) -> float:
+        if not self.observed:
+            return 1.0
+        return sum(obs.success_rate for obs in self.observed.values()) / len(self.observed)

@@ -11,6 +11,7 @@ from orchestrator.orchestrator_agent import VentureSwarmOrchestrator
 from shared.config import get_settings
 from shared.schemas import StartupQuery, StartupReport
 from shared.utils import get_logger, setup_logging
+from shared.zynd_runtime import install_shutdown_handlers
 
 
 settings = get_settings()
@@ -18,6 +19,7 @@ setup_logging(settings.log_level)
 log = get_logger("main")
 
 orchestrator = VentureSwarmOrchestrator(settings)
+install_shutdown_handlers("venture-swarm-orchestrator", orchestrator.stop)
 
 
 @asynccontextmanager

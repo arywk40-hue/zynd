@@ -10,7 +10,7 @@ log = get_logger("Planner")
 
 
 def plan(query: str) -> PlannedTasks:
-    log.info("[Planner] Breaking task into subtasks...")
+    log.info("[Planner] Breaking startup query into subtasks...")
 
     tasks = [
         Subtask(

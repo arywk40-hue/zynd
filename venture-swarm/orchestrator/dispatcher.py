@@ -34,9 +34,12 @@ class AgentDispatchHTTPError(RuntimeError):
 async def _candidate_healthy(candidate: CandidateAgent) -> bool:
     if candidate.status not in {"active", "online"}:
         log.warning("[Health] %s skipped because status=%s", candidate.name, candidate.status)
+        log.warning("[Recovery] Removing %s from active pool", candidate.name)
         return False
     if candidate.freshness_s is not None and candidate.freshness_s > 120:
         log.warning("[Health] %s skipped because heartbeat is stale %.1fs", candidate.name, candidate.freshness_s)
+        log.warning("[CRASH] %s failed heartbeat freshness check", candidate.name)
+        log.warning("[Recovery] Removing %s from active pool", candidate.name)
         return False
 
     health_url = f"{str(candidate.agent_url).rstrip('/')}/health"
@@ -51,9 +54,13 @@ async def _candidate_healthy(candidate: CandidateAgent) -> bool:
         is_healthy = payload.get("status") in {"healthy", "ok"} and heartbeat_ok is not False
         if not is_healthy:
             log.warning("[Health] %s unhealthy: %s", candidate.name, payload)
+            log.warning("[CRASH] %s became unhealthy or disconnected", candidate.name)
+            log.warning("[Recovery] Removing %s from active pool", candidate.name)
         return bool(is_healthy)
     except Exception as e:  # noqa: BLE001
-        log.warning("[Health] %s health check failed: %s", candidate.name, e)
+        log.warning("[Error] %s health check failed: %s", candidate.name, e)
+        log.warning("[CRASH] %s unreachable during health check", candidate.name)
+        log.warning("[Recovery] Removing %s from active pool", candidate.name)
         return False
 
 
@@ -174,10 +181,13 @@ async def dispatch_with_failover(
                     last_exc = e2
                     continue
             log.warning("[Error] %s webhook failed: %s", candidate.name, e)
+            log.warning("[Failover] Discovering replacement...")
             continue
         except (httpx.TransportError, asyncio.TimeoutError, Exception) as e:  # noqa: BLE001
             store.update_observation(candidate.agent_id, latency_s=3.0, success=False)
             last_exc = e
+            log.warning("[Error] %s timeout or transport failure: %s", candidate.name, e)
+            log.warning("[Failover] Discovering replacement...")
             continue
 
     raise RuntimeError(f"all candidates failed for capability={task.capability}: {last_exc}")

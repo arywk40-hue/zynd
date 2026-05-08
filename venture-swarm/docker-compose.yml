@@ -2,14 +2,21 @@ services:
   directory:
     build: .
     command: uvicorn registry.app:app --host 0.0.0.0 --port 8000
+    stop_grace_period: 10s
     ports:
       - "8000:8000"
     environment:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2).read()"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
 
   orchestrator:
     build: .
     command: uvicorn main:app --host 0.0.0.0 --port 8001
+    stop_grace_period: 10s
     ports:
       - "8001:8001"
     depends_on:
@@ -25,10 +32,16 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - PREMIUM_PAYMENT_TOKEN=${PREMIUM_PAYMENT_TOKEN:-}
       - ORCHESTRATOR_SDK_WEBHOOK_PORT=9201
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health', timeout=2).read()"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
 
   trend-agent:
     build: .
     command: uvicorn agents.trend_agent.agent:app --host 0.0.0.0 --port 8101
+    stop_grace_period: 10s
     ports:
       - "8101:8101"
     depends_on:
@@ -38,10 +51,16 @@ services:
       - ZYND_REGISTRY_URL=http://directory:8000
       - SERVICE_URL=http://trend-agent:8101
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8101/health', timeout=2).read()"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
 
   funding-agent:
     build: .
     command: uvicorn agents.funding_agent.agent:app --host 0.0.0.0 --port 8102
+    stop_grace_period: 10s
     ports:
       - "8102:8102"
     depends_on:
@@ -53,10 +72,16 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - PREMIUM_COST_USD=0.10
       - PREMIUM_REQUIRED=true
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8102/health', timeout=2).read()"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
 
   competitor-agent:
     build: .
     command: uvicorn agents.competitor_agent.agent:app --host 0.0.0.0 --port 8103
+    stop_grace_period: 10s
     ports:
       - "8103:8103"
     depends_on:
@@ -66,10 +91,16 @@ services:
       - ZYND_REGISTRY_URL=http://directory:8000
       - SERVICE_URL=http://competitor-agent:8103
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8103/health', timeout=2).read()"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
 
   market-gap-agent:
     build: .
     command: uvicorn agents.market_gap_agent.agent:app --host 0.0.0.0 --port 8104
+    stop_grace_period: 10s
     ports:
       - "8104:8104"
     depends_on:
@@ -79,10 +110,16 @@ services:
       - ZYND_REGISTRY_URL=http://directory:8000
       - SERVICE_URL=http://market-gap-agent:8104
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8104/health', timeout=2).read()"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
 
   risk-agent:
     build: .
     command: uvicorn agents.risk_agent.agent:app --host 0.0.0.0 --port 8105
+    stop_grace_period: 10s
     ports:
       - "8105:8105"
     depends_on:
@@ -92,3 +129,8 @@ services:
       - ZYND_REGISTRY_URL=http://directory:8000
       - SERVICE_URL=http://risk-agent:8105
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8105/health', timeout=2).read()"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
