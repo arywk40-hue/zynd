@@ -8,7 +8,9 @@ from pathlib import Path
 from fastapi import BackgroundTasks, FastAPI
 from zyndai_agent.agent import ZyndAIAgent
 
+from agents.risk_agent.prompts import SYSTEM_PROMPT
 from shared.config import get_settings
+from shared.llm import build_llm_data_factory
 from shared.schemas import AgentTaskResponse
 from shared.utils import get_logger, setup_logging
 from shared.zynd_runtime import (
@@ -43,8 +45,11 @@ def _load_agent_config() -> dict:
     return json.loads(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
 
 
-def _build_data(_: str) -> list[dict]:
-    return []
+_build_data = build_llm_data_factory(
+    settings=settings,
+    capability="risk-analysis",
+    system_prompt=SYSTEM_PROMPT,
+)
 
 
 agent: ZyndAIAgent | None = None
@@ -80,7 +85,7 @@ async def lifespan(_: FastAPI):
         agent=agent,
         capability="risk-analysis",
         build_data=_build_data,
-        base_notes=["No risk data source configured."],
+        base_notes=["Uses configured LLM provider for live risk reasoning when available."],
     )
     start_sdk_runtime(agent)
     log.info("[Heartbeat] %s connected to registry", agent.agent_config.name)

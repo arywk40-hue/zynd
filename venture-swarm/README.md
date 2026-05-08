@@ -79,6 +79,8 @@ venture-swarm/
 │   ├── logging_config.py
 │   ├── zynd_runtime.py
 │   └── config.py
+├── docs/
+│   └── advanced-implementation-prompts.md
 ├── .env.example
 ├── requirements.txt
 ├── docker-compose.yml
@@ -224,7 +226,20 @@ cd venture-swarm
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env
 ```
+
+For live LLM-backed agent outputs, edit `.env` and set one provider:
+
+```bash
+LLM_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
+```
+
+Supported providers are `openai`, `groq`, `gemini`, `anthropic`, `mistral`, and `cerebras`. Keep `LLM_PROVIDER=none` to run the distributed infrastructure without live model calls.
+
+For OpenAI-compatible gateways, set `OPENAI_BASE_URL` and `OPENAI_MODEL` with `LLM_PROVIDER=openai`.
 
 Run services:
 
@@ -255,6 +270,17 @@ VentureSwarm is a decentralized startup-intelligence infrastructure layer:
 - capability-based parallel delegation
 - resilience via failover and retry
 - structured, decision-grade startup outputs
+
+## Advanced Prompts
+
+Post-core implementation prompts live in `docs/advanced-implementation-prompts.md`:
+
+- agent-to-agent messaging
+- richer reputation scoring
+- deployer.zynd.ai polish
+- optional x402 premium agents
+
+Treat these as later upgrades after discovery, heartbeat, webhooks, failover, and observability are stable.
 
 ## Troubleshooting
 

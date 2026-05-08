@@ -97,7 +97,14 @@ async def _call_agent(
     log.info("[Webhook] POST %s", sync_url)
 
     def _post():
-        return sender_agent.x402_processor.post(sync_url, json=msg.to_dict(), headers=headers, timeout=12)
+        if payment_token:
+            return requests.post(sync_url, json=msg.to_dict(), headers=headers, timeout=12)
+        try:
+            return sender_agent.x402_processor.post(sync_url, json=msg.to_dict(), headers=headers, timeout=12)
+        except Exception as e:  # noqa: BLE001
+            if "Invalid payment required response" in str(e):
+                return requests.post(sync_url, json=msg.to_dict(), headers=headers, timeout=12)
+            raise
 
     try:
         response = await asyncio.to_thread(_post)
