@@ -1,31 +1,47 @@
 from __future__ import annotations
 
-from shared.schemas import AgentCard
-from shared.utils import get_logger
-from shared.zynd_sdk import ZyndClient
+import asyncio
 
-from orchestrator.reputation import ReputationStore, score
+from zyndai_agent.agent import ZyndAIAgent
+
+from orchestrator.reputation import ReputationStore
+from shared.schemas import CandidateAgent
+from shared.utils import get_logger
 
 
 log = get_logger("Discovery")
 
 
-async def discover_and_rank(
-    *,
-    client: ZyndClient,
-    store: ReputationStore,
-    capability: str,
-) -> list[AgentCard]:
+async def discover_and_rank(*, orchestrator_agent: ZyndAIAgent, store: ReputationStore, capability: str) -> list[CandidateAgent]:
     log.info("[Discovery] Searching %s agents...", capability)
-    agents = await client.search_agents(keyword=capability)
-    log.info("[Discovery] Found %d agents", len(agents))
 
-    def _rank_key(card: AgentCard) -> float:
-        return score(store.effective_reputation(card))
+    raw_results = await asyncio.to_thread(
+        lambda: orchestrator_agent.search_agents(
+            keyword=capability,
+            skills=[capability],
+            limit=10,
+            federated=False,
+            enrich=False,
+        )
+    )
 
-    ranked = sorted(agents, key=_rank_key, reverse=True)
+    candidates: list[CandidateAgent] = []
+    for item in raw_results:
+        agent_url = str(item.get("agent_url", "")).rstrip("/")
+        if not agent_url:
+            continue
+        candidates.append(
+            CandidateAgent(
+                agent_id=str(item.get("agent_id", "unknown")),
+                name=str(item.get("name", "unknown-agent")),
+                agent_url=f"{agent_url}",
+                search_score=float(item.get("score", 0.0) or 0.0),
+                tags=list(item.get("tags", []) or []),
+            )
+        )
+
+    ranked = sorted(candidates, key=lambda c: store.score(c.agent_id, c.search_score), reverse=True)
+    log.info("[Discovery] Found %d compatible agents", len(ranked))
     if ranked:
-        best = ranked[0]
-        log.info("[Ranking] Selecting highest reputation agent: %s", best.name)
+        log.info("[Ranking] Selecting highest reputation agent...")
     return ranked
-

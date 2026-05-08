@@ -65,6 +65,14 @@ class Subtask(BaseModel):
     keywords: list[str] = Field(default_factory=list)
 
 
+class CandidateAgent(BaseModel):
+    agent_id: str
+    name: str
+    agent_url: HttpUrl
+    search_score: float = 0.0
+    tags: list[str] = Field(default_factory=list)
+
+
 class PlannedTasks(BaseModel):
     query: str
     tasks: list[Subtask]
@@ -107,4 +115,3 @@ class StartupReport(BaseModel):
     market_gaps: list[dict[str, Any]] = Field(default_factory=list)
     risks: list[dict[str, Any]] = Field(default_factory=list)
     agent_trace: list[dict[str, Any]] = Field(default_factory=list)
-

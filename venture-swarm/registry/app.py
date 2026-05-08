@@ -2,20 +2,13 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import Dict
+from datetime import datetime, timezone
+from typing import Any, Dict
 
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
 from shared.config import get_settings
-from shared.schemas import (
-    AgentCard,
-    HeartbeatRequest,
-    HeartbeatResponse,
-    RegisterAgentRequest,
-    RegisterAgentResponse,
-    SearchAgentsResponse,
-    utc_now,
-)
 from shared.utils import get_logger, setup_logging
 
 
@@ -24,80 +17,161 @@ setup_logging(settings.log_level)
 log = get_logger("Directory")
 
 
+class RegisterAgentV1Request(BaseModel):
+    name: str
+    agent_url: str
+    category: str = "general"
+    tags: list[str] = Field(default_factory=list)
+    summary: str = ""
+    public_key: str
+    signature: str
+    capability_summary: dict[str, Any] | None = None
+
+
+class RegisterAgentV1Response(BaseModel):
+    agent_id: str
+
+
+class SearchV1Request(BaseModel):
+    query: str | None = None
+    category: str | None = None
+    tags: list[str] | None = None
+    skills: list[str] | None = None
+    max_results: int = 10
+    offset: int = 0
+    federated: bool = False
+    enrich: bool = False
+
+
 @dataclass
 class _Entry:
-    card: AgentCard
-    ttl_s: float
-    last_seen_mono: float
+    agent_id: str
+    name: str
+    agent_url: str
+    category: str
+    tags: list[str]
+    summary: str
+    capability_summary: dict[str, Any]
+    public_key: str
+    signature: str
+    status: str
+    score: float
+    last_heartbeat: str
+    updated_mono: float
 
 
 _agents: Dict[str, _Entry] = {}
 
 
-def _is_alive(entry: _Entry) -> bool:
-    return (time.monotonic() - entry.last_seen_mono) <= entry.ttl_s
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def _cleanup() -> None:
-    stale = [agent_id for agent_id, entry in _agents.items() if not _is_alive(entry)]
-    for agent_id in stale:
-        _agents.pop(agent_id, None)
+def _entry_to_search_result(entry: _Entry, enrich: bool) -> dict[str, Any]:
+    result = {
+        "agent_id": entry.agent_id,
+        "name": entry.name,
+        "summary": entry.summary,
+        "category": entry.category,
+        "tags": entry.tags,
+        "capability_summary": entry.capability_summary,
+        "agent_url": entry.agent_url,
+        "home_registry": str(settings.directory_url),
+        "score": entry.score,
+        "score_breakdown": {"base": entry.score},
+        "status": entry.status,
+        "last_heartbeat": entry.last_heartbeat,
+    }
+    if enrich:
+        result["card"] = {
+            "agent_id": entry.agent_id,
+            "name": entry.name,
+            "description": entry.summary,
+            "tags": entry.tags,
+            "capabilities": entry.capability_summary.get("skills", []),
+            "endpoints": {
+                "invoke": f"{entry.agent_url.rstrip('/')}/webhook/sync",
+                "invoke_async": f"{entry.agent_url.rstrip('/')}/webhook",
+                "health": f"{entry.agent_url.rstrip('/')}/health",
+                "agent_card": f"{entry.agent_url.rstrip('/')}/.well-known/agent.json",
+            },
+        }
+    return result
 
 
-app = FastAPI(title="VentureSwarm Directory", version="0.1.0")
+app = FastAPI(title="VentureSwarm Directory", version="0.2.0")
 
 
 @app.get("/health")
 async def health() -> dict[str, str]:
-    _cleanup()
     return {"status": "ok", "agents": str(len(_agents))}
 
 
-@app.post("/register", response_model=RegisterAgentResponse)
-async def register(req: RegisterAgentRequest) -> RegisterAgentResponse:
-    _cleanup()
-    card = req.card.model_copy(update={"last_seen": utc_now()})
-    _agents[card.agent_id] = _Entry(card=card, ttl_s=req.ttl_s, last_seen_mono=time.monotonic())
-    log.info("[Directory] Registered %s (%s) caps=%s", card.name, card.agent_id, ",".join(card.capabilities))
-    return RegisterAgentResponse(ok=True)
+@app.post("/v1/agents", response_model=RegisterAgentV1Response)
+async def register_v1(req: RegisterAgentV1Request) -> RegisterAgentV1Response:
+    # Deterministic lightweight ID strategy for local registry.
+    agent_id = f"agdns:{abs(hash((req.public_key, req.agent_url, req.name))) % (10**16):016d}"
+    _agents[agent_id] = _Entry(
+        agent_id=agent_id,
+        name=req.name,
+        agent_url=req.agent_url.rstrip("/"),
+        category=req.category,
+        tags=req.tags,
+        summary=req.summary,
+        capability_summary=req.capability_summary or {},
+        public_key=req.public_key,
+        signature=req.signature,
+        status="active",
+        score=0.85,
+        last_heartbeat=_utc_now_iso(),
+        updated_mono=time.monotonic(),
+    )
+    log.info("[Directory] Registered %s (%s)", req.name, agent_id)
+    return RegisterAgentV1Response(agent_id=agent_id)
 
 
-@app.post("/heartbeat", response_model=HeartbeatResponse)
-async def heartbeat(req: HeartbeatRequest) -> HeartbeatResponse:
-    _cleanup()
-    entry = _agents.get(req.agent_id)
-    if not entry:
-        raise HTTPException(status_code=404, detail="agent not found")
-    entry.last_seen_mono = time.monotonic()
-    entry.card = entry.card.model_copy(update={"last_seen": utc_now()})
-    return HeartbeatResponse(ok=True)
+@app.post("/v1/search")
+async def search_v1(req: SearchV1Request) -> dict[str, Any]:
+    query = (req.query or "").strip().lower()
+    requested_tags = set((req.tags or []))
+    requested_skills = set((req.skills or []))
 
-
-@app.get("/search", response_model=SearchAgentsResponse)
-async def search(keyword: str) -> SearchAgentsResponse:
-    _cleanup()
-    kw = keyword.strip().lower()
-    matches: list[AgentCard] = []
+    results: list[dict[str, Any]] = []
     for entry in _agents.values():
-        card = entry.card
-        haystack = " ".join(
-            [
-                card.name,
-                card.description,
-                " ".join(card.capabilities),
-                " ".join(card.tags),
-            ]
-        ).lower()
-        if kw in haystack:
-            matches.append(card)
-    return SearchAgentsResponse(keyword=keyword, agents=matches)
+        if req.category and entry.category != req.category:
+            continue
+
+        if requested_tags and not requested_tags.intersection(set(entry.tags)):
+            continue
+
+        entry_skills = set(entry.capability_summary.get("skills", []) or [])
+        if requested_skills and not requested_skills.intersection(entry_skills):
+            continue
+
+        haystack = " ".join([
+            entry.name,
+            entry.summary,
+            " ".join(entry.tags),
+            " ".join(list(entry_skills)),
+        ]).lower()
+        if query and query not in haystack:
+            continue
+
+        results.append(_entry_to_search_result(entry, req.enrich))
+
+    results = results[req.offset : req.offset + req.max_results]
+    return {
+        "results": results,
+        "total_found": len(results),
+        "offset": req.offset,
+        "has_more": False,
+        "search_stats": {"federated": req.federated},
+    }
 
 
-@app.get("/agents/{agent_id}", response_model=AgentCard)
-async def get_agent(agent_id: str) -> AgentCard:
-    _cleanup()
+@app.get("/agents/{agent_id}")
+async def get_agent(agent_id: str) -> dict[str, Any]:
     entry = _agents.get(agent_id)
     if not entry:
         raise HTTPException(status_code=404, detail="agent not found")
-    return entry.card
-
+    return _entry_to_search_result(entry, enrich=True)

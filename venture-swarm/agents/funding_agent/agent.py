@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import json
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException
+from zyndai_agent import dns_registry
+from zyndai_agent.agent import AgentConfig, ZyndAIAgent
+from zyndai_agent.message import AgentMessage
 
 from shared.config import get_settings
-from shared.schemas import AgentTaskRequest, AgentTaskResponse
+from shared.schemas import AgentTaskResponse
 from shared.utils import get_logger, setup_logging
-from shared.zynd_sdk import ZyndAIAgent
 
 
 settings = get_settings()
@@ -35,52 +39,14 @@ def _premium_cost() -> float:
         return 0.10
 
 
-agent: ZyndAIAgent | None = None
+def _load_agent_config() -> dict:
+    config_path = Path(__file__).with_name("agent.config.json")
+    return json.loads(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
 
 
-@asynccontextmanager
-async def lifespan(_: FastAPI):
-    global agent
-    base = _service_url()
-    agent = ZyndAIAgent(
-        settings=settings,
-        name="funding-agent",
-        description="Extracts investment signals and likely funding dynamics for the idea.",
-        capabilities=["funding-analysis", "vc-research", "investment-signals"],
-        tags=["funding", "vc", "signals"],
-        webhook_sync_url=f"{base}/webhook/sync",
-        health_url=f"{base}/health",
-        premium_required=_premium_required(),
-        premium_cost_usd=_premium_cost(),
-        initial_reputation={"latency": 1.4, "success_rate": 0.92, "quality_score": 8.2, "cost_score": 0.4},
-        key_path=os.getenv("AGENT_KEY_PATH", ".keys/funding-agent.key"),
-    )
-    await agent.start()
-    yield
-
-
-app = FastAPI(title="Funding Intelligence Agent", version="0.1.0", lifespan=lifespan)
-
-
-@app.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok"}
-
-
-@app.post("/webhook/sync", response_model=AgentTaskResponse)
-async def webhook_sync(req: AgentTaskRequest, x_payment_token: str | None = Header(default=None)) -> AgentTaskResponse:
-    assert agent is not None
-    if agent.card.premium_required and not x_payment_token:
-        cost = agent.card.premium_cost_usd or 0.1
-        log.warning("[Payment] Payment required (simulated). cost=$%.2f", cost)
-        raise HTTPException(
-            status_code=402,
-            detail={"error": "payment_required", "cost_usd": cost, "pay_to": "X-Payment-Token"},
-        )
-
-    log.info("[Funding] Generating investment signals...")
-    q = req.query.lower()
-    signals = [
+def _build_data(query: str) -> list[dict]:
+    q = query.lower()
+    return [
         {
             "signal": "Clear expansion path to adjacent verticals",
             "why_it_matters": "Investors prefer wedge + expansion strategies that scale.",
@@ -101,15 +67,90 @@ async def webhook_sync(req: AgentTaskRequest, x_payment_token: str | None = Head
         },
     ]
 
-    notes = ["Heuristic funding signals; premium gate simulates monetized agent service."]
+
+agent: ZyndAIAgent | None = None
+_agent_config: dict = {}
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    global agent, _agent_config
+    _agent_config = _load_agent_config()
+    registry_url = str(settings.zynd_registry_url or settings.directory_url).rstrip("/")
+
+    agent = ZyndAIAgent(
+        AgentConfig(
+            name=_agent_config.get("name", "funding-agent"),
+            description=_agent_config.get("description", "Funding analysis agent"),
+            category=_agent_config.get("category", "market-intelligence"),
+            tags=_agent_config.get("tags", ["funding"]),
+            summary=_agent_config.get("summary", "Funding intelligence"),
+            capabilities=_agent_config.get("capabilities", {"skills": ["funding-analysis"]}),
+            webhook_port=int(_agent_config.get("webhook_port", 9102)),
+            registry_url=registry_url,
+            keypair_path=os.environ.get("ZYND_AGENT_KEYPAIR_PATH") or None,
+            price=(f"${_premium_cost():.2f}" if _premium_required() else None),
+            config_dir=".agent-funding",
+        )
+    )
+
+    agent.set_custom_agent(lambda text: json.dumps(_build_data(text), ensure_ascii=False))
+    agent.add_message_handler(lambda message, _: log.info("[Funding] Message received from %s", message.sender_id))
+
+    try:
+        dns_registry.register_agent(
+            registry_url=registry_url,
+            keypair=agent.keypair,
+            name=agent.agent_config.name,
+            agent_url=_service_url(),
+            category=agent.agent_config.category,
+            tags=agent.agent_config.tags,
+            summary=agent.agent_config.summary,
+            capability_summary=agent.agent_config.capabilities,
+        )
+    except Exception as e:  # noqa: BLE001
+        log.warning("[Registration] Failed: %s", e)
+
+    yield
+
+
+app = FastAPI(title="Funding Intelligence Agent", version="0.2.0", lifespan=lifespan)
+
+
+@app.get("/health")
+async def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.post("/webhook/sync", response_model=AgentTaskResponse)
+async def webhook_sync(payload: dict, x_payment_token: str | None = Header(default=None)) -> AgentTaskResponse:
+    assert agent is not None
+
+    if _premium_required() and not x_payment_token:
+        cost = _premium_cost()
+        raise HTTPException(
+            status_code=402,
+            detail={"error": "payment_required", "cost_usd": cost, "pay_to": "X-Payment-Token"},
+        )
+
+    msg = AgentMessage.from_dict(payload)
+    instruction = str((msg.metadata or {}).get("instruction", ""))
+    task_id = str((msg.metadata or {}).get("task_id", msg.message_id))
+
+    raw = agent.invoke(f"{msg.content}\nInstruction: {instruction}" if instruction else msg.content)
+    data = json.loads(raw)
+
+    notes = ["Generated via SDK invoke() and AgentMessage webhook flow."]
     if x_payment_token:
         notes.append("Payment token accepted.")
 
-    return AgentTaskResponse(
-        task_id=req.task_id,
+    response = AgentTaskResponse(
+        task_id=task_id,
         agent_id=agent.agent_id,
-        agent_name=agent.card.name,
+        agent_name=agent.agent_config.name,
         capability="funding-analysis",
-        data=signals,
+        data=data,
         notes=notes,
     )
+    agent.set_response(msg.message_id, json.dumps(response.model_dump(mode="json"), ensure_ascii=False))
+    return response
