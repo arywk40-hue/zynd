@@ -1,0 +1,11 @@
+{
+  "schema_version": "2.0",
+  "agent_id": "agdns:8fba004939c053c01381c357f39ae0ab",
+  "public_key": "ed25519:OhIw6rEyFC3FWSjFsTHJdLMi6scDCHFFCqmqoP7/Rg0=",
+  "private_key": "ASSg3RwPucoJBhe3OkBdF+sQAP/l1P9bUDpmhYJPQAc=",
+  "name": "risk-agent",
+  "description": "Assesses technical and regulatory feasibility risks.",
+  "agent_url": "http://localhost:9105",
+  "registry_url": "http://localhost:8000",
+  "created_at": "2026-05-08T15:20:20Z"
+}

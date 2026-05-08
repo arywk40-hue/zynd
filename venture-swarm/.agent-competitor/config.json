@@ -1,0 +1,11 @@
+{
+  "schema_version": "2.0",
+  "agent_id": "agdns:e57871c293813b12cac54d428d7c319c",
+  "public_key": "ed25519:29rwL4kE+b+PFCoehSx0FZcjPLWSLgSDnzk2f0WM8Wg=",
+  "private_key": "aiMicqzirM3nszTMpy2h0Vh4WWq8wcWqhDlsfME1sXA=",
+  "name": "competitor-agent",
+  "description": "Assesses existing solutions and competitive saturation.",
+  "agent_url": "http://localhost:9103",
+  "registry_url": "http://localhost:8000",
+  "created_at": "2026-05-08T15:20:20Z"
+}

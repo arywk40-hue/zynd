@@ -56,7 +56,7 @@ _agent_config: dict = {}
 async def lifespan(_: FastAPI):
     global agent, _agent_config
     _agent_config = _load_agent_config()
-    registry_url = str(settings.zynd_registry_url or settings.directory_url)
+    registry_url = str(settings.zynd_registry_url or settings.directory_url).rstrip("/")
 
     agent = ZyndAIAgent(
         AgentConfig(
@@ -68,7 +68,8 @@ async def lifespan(_: FastAPI):
             capabilities=_agent_config.get("capabilities", {"skills": ["trend-analysis"]}),
             webhook_port=int(_agent_config.get("webhook_port", 9101)),
             registry_url=registry_url,
-            keypair_path=os.environ.get("ZYND_AGENT_KEYPAIR_PATH", _agent_config.get("keypair_path")),
+            keypair_path=os.environ.get("ZYND_AGENT_KEYPAIR_PATH") or None,
+            config_dir=".agent-trend",
         )
     )
 

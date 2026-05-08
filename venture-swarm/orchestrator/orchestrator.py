@@ -22,16 +22,18 @@ class VentureSwarmOrchestrator:
         self._settings = settings
         self._rep = ReputationStore()
 
-        registry_url = str(settings.zynd_registry_url or settings.directory_url)
+        registry_url = str(settings.zynd_registry_url or settings.directory_url).rstrip("/")
         self._agent = ZyndAIAgent(
             AgentConfig(
                 name="venture-swarm-orchestrator",
                 description="Orchestrator agent for decentralized startup intelligence.",
                 category="orchestration",
                 tags=["orchestrator", "venture-swarm"],
+                capabilities={"skills": ["task-orchestration", "startup-intelligence"]},
                 webhook_port=settings.orchestrator_sdk_webhook_port,
                 registry_url=registry_url,
                 keypair_path=None,
+                config_dir=".agent-orchestrator",
             )
         )
         self._agent.set_custom_agent(lambda input_text: input_text)

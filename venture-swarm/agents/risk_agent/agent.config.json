@@ -2,11 +2,18 @@
   "name": "risk-agent",
   "description": "Assesses technical and regulatory feasibility risks.",
   "category": "market-intelligence",
-  "tags": ["risk", "regulatory", "technical-risk-analysis", "risk-analysis"],
+  "tags": [
+    "risk",
+    "regulatory",
+    "technical-risk-analysis",
+    "risk-analysis"
+  ],
   "summary": "Technical and regulatory risk specialist",
   "capabilities": {
-    "skills": ["technical-risk-analysis", "regulatory-risk-analysis"]
+    "skills": [
+      "technical-risk-analysis",
+      "regulatory-risk-analysis"
+    ]
   },
-  "webhook_port": 9105,
-  "keypair_path": ".keys/risk-agent.key"
+  "webhook_port": 9105
 }

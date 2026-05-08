@@ -2,11 +2,19 @@
   "name": "trend-agent",
   "description": "Identifies relevant macro and micro trends for a startup idea.",
   "category": "market-intelligence",
-  "tags": ["trends", "markets", "timing", "trend-analysis"],
+  "tags": [
+    "trends",
+    "markets",
+    "timing",
+    "trend-analysis"
+  ],
   "summary": "Trend analysis specialist for startup intelligence",
   "capabilities": {
-    "skills": ["trend-analysis", "startup-trends", "ai-market-research"]
+    "skills": [
+      "trend-analysis",
+      "startup-trends",
+      "ai-market-research"
+    ]
   },
-  "webhook_port": 9101,
-  "keypair_path": ".keys/trend-agent.key"
+  "webhook_port": 9101
 }

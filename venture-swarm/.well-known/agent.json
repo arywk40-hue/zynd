@@ -1,0 +1,40 @@
+{
+  "agent_id": "agdns:09c9543664881e8cbbe3f7e4a0be6309",
+  "public_key": "ed25519:zz6unueZjtJQoj6jYJ2GgtU662L5+Gywvmzbx/8ISO8=",
+  "name": "trend-agent",
+  "description": "Identifies relevant macro and micro trends for a startup idea.",
+  "version": "1.0",
+  "category": "market-intelligence",
+  "tags": [
+    "trends",
+    "markets",
+    "timing",
+    "trend-analysis"
+  ],
+  "summary": "Trend analysis specialist for startup intelligence",
+  "capabilities": [
+    {
+      "name": "trend-analysis",
+      "category": "skills"
+    },
+    {
+      "name": "startup-trends",
+      "category": "skills"
+    },
+    {
+      "name": "ai-market-research",
+      "category": "skills"
+    }
+  ],
+  "agent_url": "http://localhost:9101",
+  "endpoints": {
+    "invoke": "http://localhost:9101/webhook/sync",
+    "invoke_async": "http://localhost:9101/webhook",
+    "health": "http://localhost:9101/health",
+    "agent_card": "http://localhost:9101/.well-known/agent.json"
+  },
+  "status": "online",
+  "last_heartbeat": "2026-05-08T15:21:10Z",
+  "signed_at": "2026-05-08T15:21:10Z",
+  "signature": "ed25519:qait2FttpSNJ8ML6Dfu/J4mVc5BMUJ/VG3EZBat8sB3b5UC6xihub5ybKyiQKYyh9iYMRBUyK+D9tBECRF3HCA=="
+}

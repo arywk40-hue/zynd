@@ -1,0 +1,11 @@
+{
+  "schema_version": "2.0",
+  "agent_id": "agdns:22f450662f41b5a7b64c42d2ce8b5f14",
+  "public_key": "ed25519:zOXS6jORDlNVBK0xmtRnuI20FTuPlHzJYVgZwsURh9I=",
+  "private_key": "msNwM+L7LA1LBfZPy+2OemV2zfW0AklAFhJSLnxd8GU=",
+  "name": "funding-agent",
+  "description": "Extracts investment signals and likely funding dynamics for startup ideas.",
+  "agent_url": "http://localhost:9102",
+  "registry_url": "http://localhost:8000",
+  "created_at": "2026-05-08T15:20:20Z"
+}

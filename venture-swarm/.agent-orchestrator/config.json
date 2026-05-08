@@ -1,0 +1,11 @@
+{
+  "schema_version": "2.0",
+  "agent_id": "agdns:3f5f9760abb2cd75f729fc43abaf800e",
+  "public_key": "ed25519:z+9n4vkKd/l/GX6DiPA+8r7sbFlek2Kr8K2v79QTTsI=",
+  "private_key": "jfZVQ3gHnFAl/k5lJoNUkXH/PNoC/INaOADxWkdv5u8=",
+  "name": "venture-swarm-orchestrator",
+  "description": "Orchestrator agent for decentralized startup intelligence.",
+  "agent_url": "http://localhost:9201",
+  "registry_url": "http://localhost:8000",
+  "created_at": "2026-05-08T15:21:09Z"
+}
