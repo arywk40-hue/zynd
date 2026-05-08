@@ -69,8 +69,10 @@ async def dispatch_with_failover(
             log.warning("[Failover] Trying replacement %s...", card.name)
             failovers += 1
 
+        # For premium agents we intentionally start without a token to demonstrate 402 + retry.
+        token_for_attempt: str | None = None
         try:
-            tr = await timed(_call_agent(card=card, task=task, query=query, payment_token=payment_token))
+            tr = await timed(_call_agent(card=card, task=task, query=query, payment_token=token_for_attempt))
             store.update_observation(card, latency_s=tr.latency_s, success=True)
             return DispatchResult(response=tr.value, used_agent=card, latency_s=tr.latency_s, failovers=failovers)
         except httpx.HTTPStatusError as e:

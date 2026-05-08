@@ -20,7 +20,7 @@ PORT = 8104
 
 def _service_url() -> str:
     if settings.service_url:
-        return str(settings.service_url)
+        return str(settings.service_url).rstrip("/")
     return f"http://localhost:{int(os.getenv('PORT', PORT))}"
 
 
@@ -85,4 +85,3 @@ async def webhook_sync(req: AgentTaskRequest) -> AgentTaskResponse:
         data=gaps,
         notes=["Heuristic market gap detection."],
     )
-

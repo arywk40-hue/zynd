@@ -47,15 +47,18 @@ def _agent_id_from_key(key: Ed25519PrivateKey) -> str:
 class ZyndClient:
     settings: Settings
 
+    def _base(self) -> str:
+        return str(self.settings.directory_url).rstrip("/")
+
     async def register_agent(self, card: AgentCard, ttl_s: float) -> None:
         payload = RegisterAgentRequest(card=card, ttl_s=ttl_s).model_dump(mode="json")
         async with http_client() as client:
-            r = await client.post(f"{self.settings.directory_url}/register", json=payload)
+            r = await client.post(f"{self._base()}/register", json=payload)
             r.raise_for_status()
 
     async def search_agents(self, keyword: str) -> list[AgentCard]:
         async with http_client() as client:
-            r = await client.get(f"{self.settings.directory_url}/search", params={"keyword": keyword})
+            r = await client.get(f"{self._base()}/search", params={"keyword": keyword})
             r.raise_for_status()
             parsed = SearchAgentsResponse.model_validate(r.json())
             return parsed.agents
@@ -63,7 +66,7 @@ class ZyndClient:
     async def heartbeat(self, agent_id: str) -> None:
         async with http_client() as client:
             r = await client.post(
-                f"{self.settings.directory_url}/heartbeat",
+                f"{self._base()}/heartbeat",
                 json=HeartbeatRequest(agent_id=agent_id).model_dump(mode="json"),
             )
             r.raise_for_status()
