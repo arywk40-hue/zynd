@@ -19,6 +19,7 @@ from shared.zynd_runtime import (
     ensure_local_developer_keypair,
     ensure_sdk_keypair,
     heartbeat_connected,
+    search_agents,
     sdk_agent_id,
     start_sdk_runtime,
     stop_sdk_runtime,
@@ -93,6 +94,64 @@ class VentureSwarmOrchestrator:
             "orchestrations_total": self._metrics.orchestrations_total,
             "average_orchestration_time_s": round(self._metrics.average_orchestration_time_s, 3),
             "last_error": self._metrics.last_error,
+        }
+
+    async def network(self) -> dict:
+        registry_url = str(self._settings.zynd_registry_url or self._settings.directory_url).rstrip("/")
+        try:
+            candidates = await asyncio.to_thread(
+                lambda: search_agents(
+                    registry_url=registry_url,
+                    query="",
+                    status="active",
+                    entity_type="agent",
+                    max_results=50,
+                    federated=True,
+                    enrich=True,
+                )
+            )
+        except Exception as e:  # noqa: BLE001
+            self._metrics.last_error = str(e)
+            log.warning("[Error] Network status discovery failed: %s", e)
+            return {
+                "status": "degraded",
+                "registry_url": registry_url,
+                "active_agents": 0,
+                "error": str(e),
+                "orchestrator": self.health(),
+                "agents": [],
+            }
+
+        seen: set[str] = set()
+        agents = []
+        for candidate in sorted(candidates, key=lambda item: item.name):
+            if candidate.agent_id in seen:
+                continue
+            seen.add(candidate.agent_id)
+            agents.append(
+                {
+                    "name": candidate.name,
+                    "agent_id": candidate.agent_id,
+                    "status": candidate.status,
+                    "category": candidate.category,
+                    "capabilities": candidate.capabilities,
+                    "tags": candidate.tags,
+                    "protocols": candidate.protocols,
+                    "trust_score": candidate.trust_score,
+                    "latency_s": candidate.latency_s,
+                    "freshness_s": candidate.freshness_s,
+                    "last_heartbeat": candidate.last_heartbeat,
+                    "endpoints": (candidate.card or {}).get("endpoints", {}),
+                }
+            )
+
+        log.info("[Metrics] active_agents=%d network_status=ok", len(agents))
+        return {
+            "status": "ok",
+            "registry_url": registry_url,
+            "active_agents": len(agents),
+            "orchestrator": self.health(),
+            "agents": agents,
         }
 
     async def run(self, query: str) -> StartupReport:

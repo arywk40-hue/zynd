@@ -60,65 +60,69 @@ def generate_structured_items(
         required_fields=required_fields,
     )
 
-    log.info("[LLM] %s generating live %s items", provider, capability)
-    if provider == "openai":
-        raw = _call_openai_compatible(
-            base_url=settings.openai_base_url,
-            api_key=_require(settings.openai_api_key, "OPENAI_API_KEY"),
-            model=settings.openai_model,
-            system_prompt=system_prompt,
-            prompt=prompt,
-            timeout_s=settings.llm_timeout_s,
-        )
-    elif provider == "groq":
-        raw = _call_openai_compatible(
-            base_url=settings.groq_base_url,
-            api_key=_require(settings.groq_api_key, "GROQ_API_KEY"),
-            model=settings.groq_model,
-            system_prompt=system_prompt,
-            prompt=prompt,
-            timeout_s=settings.llm_timeout_s,
-        )
-    elif provider == "gemini":
-        raw = _call_gemini(
-            api_key=_require(settings.gemini_api_key, "GEMINI_API_KEY"),
-            model=settings.gemini_model,
-            prompt=f"{system_prompt}\n\n{prompt}",
-            timeout_s=settings.llm_timeout_s,
-        )
-    elif provider == "anthropic":
-        raw = _call_anthropic(
-            api_key=_require(settings.anthropic_api_key, "ANTHROPIC_API_KEY"),
-            model=settings.anthropic_model,
-            system_prompt=system_prompt,
-            prompt=prompt,
-            timeout_s=settings.llm_timeout_s,
-        )
-    elif provider == "mistral":
-        raw = _call_openai_compatible(
-            base_url=settings.mistral_base_url,
-            api_key=_require(settings.mistral_api_key, "MISTRAL_API_KEY"),
-            model=settings.mistral_model,
-            system_prompt=system_prompt,
-            prompt=prompt,
-            timeout_s=settings.llm_timeout_s,
-        )
-    elif provider == "cerebras":
-        raw = _call_openai_compatible(
-            base_url=settings.cerebras_base_url,
-            api_key=_require(settings.cerebras_api_key, "CEREBRAS_API_KEY"),
-            model=settings.cerebras_model,
-            system_prompt=system_prompt,
-            prompt=prompt,
-            timeout_s=settings.llm_timeout_s,
-        )
-    else:
-        raise RuntimeError(f"Unsupported LLM_PROVIDER={settings.llm_provider!r}")
+    try:
+        log.info("[LLM] %s generating live %s items", provider, capability)
+        if provider == "openai":
+            raw = _call_openai_compatible(
+                base_url=settings.openai_base_url,
+                api_key=_require(settings.openai_api_key, "OPENAI_API_KEY"),
+                model=settings.openai_model,
+                system_prompt=system_prompt,
+                prompt=prompt,
+                timeout_s=settings.llm_timeout_s,
+            )
+        elif provider == "groq":
+            raw = _call_openai_compatible(
+                base_url=settings.groq_base_url,
+                api_key=_require(settings.groq_api_key, "GROQ_API_KEY"),
+                model=settings.groq_model,
+                system_prompt=system_prompt,
+                prompt=prompt,
+                timeout_s=settings.llm_timeout_s,
+            )
+        elif provider == "gemini":
+            raw = _call_gemini(
+                api_key=_require(settings.gemini_api_key, "GEMINI_API_KEY"),
+                model=settings.gemini_model,
+                prompt=f"{system_prompt}\n\n{prompt}",
+                timeout_s=settings.llm_timeout_s,
+            )
+        elif provider == "anthropic":
+            raw = _call_anthropic(
+                api_key=_require(settings.anthropic_api_key, "ANTHROPIC_API_KEY"),
+                model=settings.anthropic_model,
+                system_prompt=system_prompt,
+                prompt=prompt,
+                timeout_s=settings.llm_timeout_s,
+            )
+        elif provider == "mistral":
+            raw = _call_openai_compatible(
+                base_url=settings.mistral_base_url,
+                api_key=_require(settings.mistral_api_key, "MISTRAL_API_KEY"),
+                model=settings.mistral_model,
+                system_prompt=system_prompt,
+                prompt=prompt,
+                timeout_s=settings.llm_timeout_s,
+            )
+        elif provider == "cerebras":
+            raw = _call_openai_compatible(
+                base_url=settings.cerebras_base_url,
+                api_key=_require(settings.cerebras_api_key, "CEREBRAS_API_KEY"),
+                model=settings.cerebras_model,
+                system_prompt=system_prompt,
+                prompt=prompt,
+                timeout_s=settings.llm_timeout_s,
+            )
+        else:
+            raise RuntimeError(f"Unsupported LLM_PROVIDER={settings.llm_provider!r}")
 
-    items = _parse_items(raw)
-    if required_fields:
-        items = [_normalize_item(item, required_fields) for item in items]
-    return items[: settings.llm_max_items]
+        items = _parse_items(raw)
+        if required_fields:
+            items = [_normalize_item(item, required_fields) for item in items]
+        return items[: settings.llm_max_items]
+    except Exception as e:  # noqa: BLE001
+        log.error("[Error] %s LLM generation failed via %s: %s", capability, provider, e)
+        return []
 
 
 def _build_prompt(
