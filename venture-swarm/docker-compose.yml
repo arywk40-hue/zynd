@@ -1,0 +1,88 @@
+services:
+  directory:
+    build: .
+    command: uvicorn registry.app:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+  orchestrator:
+    build: .
+    command: uvicorn main:app --host 0.0.0.0 --port 8001
+    ports:
+      - "8001:8001"
+    depends_on:
+      - directory
+      - trend-agent
+      - funding-agent
+      - competitor-agent
+      - market-gap-agent
+      - risk-agent
+    environment:
+      - DIRECTORY_URL=http://directory:8000
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - PREMIUM_PAYMENT_TOKEN=${PREMIUM_PAYMENT_TOKEN:-demo-token}
+
+  trend-agent:
+    build: .
+    command: uvicorn agents.trend_agent.agent:app --host 0.0.0.0 --port 8101
+    ports:
+      - "8101:8101"
+    depends_on:
+      - directory
+    environment:
+      - DIRECTORY_URL=http://directory:8000
+      - SERVICE_URL=http://trend-agent:8101
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+  funding-agent:
+    build: .
+    command: uvicorn agents.funding_agent.agent:app --host 0.0.0.0 --port 8102
+    ports:
+      - "8102:8102"
+    depends_on:
+      - directory
+    environment:
+      - DIRECTORY_URL=http://directory:8000
+      - SERVICE_URL=http://funding-agent:8102
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - PREMIUM_COST_USD=0.10
+      - PREMIUM_REQUIRED=true
+
+  competitor-agent:
+    build: .
+    command: uvicorn agents.competitor_agent.agent:app --host 0.0.0.0 --port 8103
+    ports:
+      - "8103:8103"
+    depends_on:
+      - directory
+    environment:
+      - DIRECTORY_URL=http://directory:8000
+      - SERVICE_URL=http://competitor-agent:8103
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+  market-gap-agent:
+    build: .
+    command: uvicorn agents.market_gap_agent.agent:app --host 0.0.0.0 --port 8104
+    ports:
+      - "8104:8104"
+    depends_on:
+      - directory
+    environment:
+      - DIRECTORY_URL=http://directory:8000
+      - SERVICE_URL=http://market-gap-agent:8104
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+  risk-agent:
+    build: .
+    command: uvicorn agents.risk_agent.agent:app --host 0.0.0.0 --port 8105
+    ports:
+      - "8105:8105"
+    depends_on:
+      - directory
+    environment:
+      - DIRECTORY_URL=http://directory:8000
+      - SERVICE_URL=http://risk-agent:8105
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+

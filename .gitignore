@@ -1,0 +1,9 @@
+*.pyc
+__pycache__/
+
+.venv/
+.python-version
+
+# VentureSwarm runtime artifacts
+venture-swarm/.keys/
+
