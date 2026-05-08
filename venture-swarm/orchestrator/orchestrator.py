@@ -12,6 +12,14 @@ from orchestrator.reputation import ReputationStore
 from shared.config import Settings
 from shared.schemas import StartupReport
 from shared.utils import get_logger
+from shared.zynd_runtime import (
+    ensure_local_developer_keypair,
+    ensure_sdk_keypair,
+    heartbeat_connected,
+    sdk_agent_id,
+    start_sdk_runtime,
+    stop_sdk_runtime,
+)
 
 
 log = get_logger("Orchestrator")
@@ -21,22 +29,38 @@ class VentureSwarmOrchestrator:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
         self._rep = ReputationStore()
+        ensure_local_developer_keypair()
 
         registry_url = str(settings.zynd_registry_url or settings.directory_url).rstrip("/")
+        keypair_path = ensure_sdk_keypair(".keys/venture-swarm-orchestrator.json")
         self._agent = ZyndAIAgent(
             AgentConfig(
                 name="venture-swarm-orchestrator",
                 description="Orchestrator agent for decentralized startup intelligence.",
                 category="orchestration",
                 tags=["orchestrator", "venture-swarm"],
-                capabilities={"skills": ["task-orchestration", "startup-intelligence"]},
-                webhook_port=settings.orchestrator_sdk_webhook_port,
+                server_port=settings.orchestrator_sdk_webhook_port,
                 registry_url=registry_url,
-                keypair_path=None,
+                keypair_path=keypair_path,
                 config_dir=".agent-orchestrator",
             )
         )
         self._agent.set_custom_agent(lambda input_text: input_text)
+
+    def start(self) -> None:
+        start_sdk_runtime(self._agent)
+        log.info("[Heartbeat] venture-swarm-orchestrator connected to registry")
+
+    def stop(self) -> None:
+        log.info("[Heartbeat] venture-swarm-orchestrator shutting down")
+        stop_sdk_runtime(self._agent)
+
+    def health(self) -> dict:
+        return {
+            "status": "healthy",
+            "agent_id": sdk_agent_id(self._agent),
+            "heartbeat_connected": heartbeat_connected(self._agent),
+        }
 
     async def run(self, query: str) -> StartupReport:
         tasks = plan(query)

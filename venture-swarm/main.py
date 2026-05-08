@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
@@ -18,12 +19,22 @@ log = get_logger("main")
 
 orchestrator = VentureSwarmOrchestrator(settings)
 
-app = FastAPI(title="VentureSwarm Orchestrator", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    orchestrator.start()
+    try:
+        yield
+    finally:
+        orchestrator.stop()
+
+
+app = FastAPI(title="VentureSwarm Orchestrator", version="0.1.0", lifespan=lifespan)
 
 
 @app.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok"}
+async def health() -> dict:
+    return orchestrator.health()
 
 
 @app.post("/report", response_model=StartupReport)

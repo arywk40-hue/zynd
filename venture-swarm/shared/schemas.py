@@ -70,6 +70,8 @@ class CandidateAgent(BaseModel):
     name: str
     agent_url: HttpUrl
     search_score: float = 0.0
+    status: str = "unknown"
+    last_heartbeat: str | None = None
     tags: list[str] = Field(default_factory=list)
 
 

@@ -6,13 +6,19 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
-from zyndai_agent import dns_registry
-from zyndai_agent.agent import AgentConfig, ZyndAIAgent
+from zyndai_agent.agent import ZyndAIAgent
 from zyndai_agent.message import AgentMessage
 
 from shared.config import get_settings
 from shared.schemas import AgentTaskResponse
 from shared.utils import get_logger, setup_logging
+from shared.zynd_runtime import (
+    build_sdk_agent,
+    heartbeat_connected,
+    sdk_agent_id,
+    start_sdk_runtime,
+    stop_sdk_runtime,
+)
 
 
 settings = get_settings()
@@ -45,49 +51,38 @@ _agent_config: dict = {}
 async def lifespan(_: FastAPI):
     global agent, _agent_config
     _agent_config = _load_agent_config()
-    registry_url = str(settings.zynd_registry_url or settings.directory_url).rstrip("/")
 
-    agent = ZyndAIAgent(
-        AgentConfig(
-            name=_agent_config.get("name", "trend-agent"),
-            description=_agent_config.get("description", "Trend analysis agent"),
-            category=_agent_config.get("category", "market-intelligence"),
-            tags=_agent_config.get("tags", ["trends"]),
-            summary=_agent_config.get("summary", "Trend intelligence"),
-            capabilities=_agent_config.get("capabilities", {"skills": ["trend-analysis"]}),
-            webhook_port=int(_agent_config.get("webhook_port", 9101)),
-            registry_url=registry_url,
-            keypair_path=os.environ.get("ZYND_AGENT_KEYPAIR_PATH") or None,
-            config_dir=".agent-trend",
-        )
+    agent = build_sdk_agent(
+        settings=settings,
+        config=_agent_config,
+        service_url=_service_url(),
+        default_name="trend-agent",
+        default_description="Trend analysis agent",
+        default_port=9101,
+        config_dir=".agent-trend",
     )
 
     agent.set_custom_agent(lambda text: json.dumps(_build_data(text), ensure_ascii=False))
-    agent.add_message_handler(lambda message, _: log.info("[Trend] Message received from %s", message.sender_id))
+    start_sdk_runtime(agent)
+    log.info("[Heartbeat] %s connected to registry", agent.agent_config.name)
 
     try:
-        dns_registry.register_agent(
-            registry_url=registry_url,
-            keypair=agent.keypair,
-            name=agent.agent_config.name,
-            agent_url=_service_url(),
-            category=agent.agent_config.category,
-            tags=agent.agent_config.tags,
-            summary=agent.agent_config.summary,
-            capability_summary=agent.agent_config.capabilities,
-        )
-    except Exception as e:  # noqa: BLE001
-        log.warning("[Registration] Failed: %s", e)
-
-    yield
+        yield
+    finally:
+        log.info("[Heartbeat] %s shutting down", agent.agent_config.name)
+        stop_sdk_runtime(agent)
 
 
 app = FastAPI(title="Trend Research Agent", version="0.2.0", lifespan=lifespan)
 
 
 @app.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok"}
+async def health() -> dict:
+    return {
+        "status": "healthy",
+        "agent_id": sdk_agent_id(agent),
+        "heartbeat_connected": heartbeat_connected(agent),
+    }
 
 
 @app.post("/webhook/sync", response_model=AgentTaskResponse)
@@ -102,11 +97,10 @@ async def webhook_sync(payload: dict) -> AgentTaskResponse:
 
     response = AgentTaskResponse(
         task_id=task_id,
-        agent_id=agent.agent_id,
+        agent_id=sdk_agent_id(agent) or "unknown",
         agent_name=agent.agent_config.name,
         capability="trend-analysis",
         data=data,
         notes=["No trend data source configured."],
     )
-    agent.set_response(msg.message_id, json.dumps(response.model_dump(mode="json"), ensure_ascii=False))
     return response

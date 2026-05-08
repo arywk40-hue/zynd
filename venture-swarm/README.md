@@ -8,7 +8,7 @@ Autonomous Startup Intelligence Swarm using the **real ZyndAI Agent SDK**.
 User Query
   ↓
 Orchestrator Agent (planner → discovery → ranking → async dispatch → aggregation)
-  ↓                             ↘ search_agents(...)
+  ↓                             ↘ heartbeat-aware registry search
 Zynd-compatible Directory (/v1/agents, /v1/search)
   ↑                                      ↓
 Agents (trend, funding, competitor, market-gap, risk)
@@ -20,10 +20,11 @@ Agents (trend, funding, competitor, market-gap, risk)
 - Python 3.12+
 - FastAPI
 - asyncio
-- zyndai-agent
+- zyndai-agent[heartbeat]
 - uvicorn
 - pydantic
 - rich
+- websockets
 
 ## Project Structure
 
@@ -76,8 +77,8 @@ The implementation uses real SDK APIs/classes:
 
 - `from zyndai_agent.agent import AgentConfig, ZyndAIAgent`
 - `from zyndai_agent.message import AgentMessage`
-- `search_agents(...)` for runtime discovery
-- `add_message_handler(...)` for inbound message hooks
+- SDK runtime startup for registration, A2A sidecar, and heartbeat
+- `dns_registry.search_entities(..., status="active")` for runtime discovery
 - `invoke(...)` for per-agent reasoning functions
 - `/webhook/sync` for inter-agent request/response messages
 
@@ -85,13 +86,14 @@ The implementation uses real SDK APIs/classes:
 
 1. Each agent starts with `AgentConfig` loaded from `agent.config.json`
 2. Agent initializes `ZyndAIAgent` (Ed25519 identity + SDK runtime)
-3. Agent self-registers to registry via SDK helper (`dns_registry.register_agent`)
+3. Agent self-registers through the SDK runtime
 4. Agent becomes discoverable via `/v1/search`
+5. Agent keeps liveness active through the SDK WebSocket heartbeat
 
 ## Discovery Flow
 
 1. Orchestrator decomposes query into capability subtasks
-2. For each subtask, orchestrator calls `search_agents(...)`
+2. For each subtask, orchestrator searches for active registry entries
 3. Candidates are ranked by blended score:
    - discovery score
    - latency
@@ -105,6 +107,13 @@ The implementation uses real SDK APIs/classes:
 - All subtasks execute concurrently with `await asyncio.gather(...)`
 - If an agent fails, orchestrator retries with the next ranked candidate
 - If 402 is returned (premium funding agent), orchestrator retries with payment token
+
+## Heartbeat And Liveness
+
+- Agents start the ZyndAI SDK runtime on startup, which starts the SDK WebSocket heartbeat.
+- `/health` includes `agent_id` and `heartbeat_connected`.
+- Discovery requests active agents only and ignores offline registry entries.
+- Shutdown calls the SDK runtime stop path so heartbeat sessions close cleanly.
 
 ## Output Shape
 
