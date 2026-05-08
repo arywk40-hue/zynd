@@ -39,19 +39,32 @@ class VentureSwarmOrchestrator:
         if payment_token:
             log.info("[Orchestrator] Premium payment token configured.")
 
-        # Dispatch all tasks in parallel; each dispatch handles its own failover.
-        dispatches = await asyncio.gather(
-            *[
-                dispatch_with_failover(
+        async def _run_task(t):
+            candidates = by_capability.get(t.capability, [])
+            try:
+                return await dispatch_with_failover(
                     task=t,
                     query=tasks.query,
-                    candidates=by_capability.get(t.capability, []),
+                    candidates=candidates,
                     store=self._rep,
                     payment_token=payment_token,
                 )
-                for t in tasks.tasks
-            ]
-        )
+            except Exception as e:  # noqa: BLE001
+                log.warning("[Failover] Primary pool failed for %s: %s", t.capability, e)
+                # Dynamic rediscovery to simulate a changing decentralized network.
+                fresh = await discover_and_rank(client=self._client, store=self._rep, capability=t.capability)
+                tried = {c.agent_id for c in candidates}
+                remaining = [c for c in fresh if c.agent_id not in tried] or fresh
+                return await dispatch_with_failover(
+                    task=t,
+                    query=tasks.query,
+                    candidates=remaining,
+                    store=self._rep,
+                    payment_token=payment_token,
+                )
+
+        # Dispatch all tasks in parallel; each task has its own failover + rediscovery.
+        dispatches = await asyncio.gather(*[_run_task(t) for t in tasks.tasks])
 
         trace = [
             {
@@ -77,4 +90,3 @@ class VentureSwarmOrchestrator:
             risks=responses["regulatory-risk-analysis"],
             agent_trace=trace,
         )
-
