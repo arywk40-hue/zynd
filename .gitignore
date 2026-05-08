@@ -6,4 +6,6 @@ __pycache__/
 
 # VentureSwarm runtime artifacts
 venture-swarm/.keys/
-
+venture-swarm/.agent/
+venture-swarm/.agent-*/
+venture-swarm/.well-known/
