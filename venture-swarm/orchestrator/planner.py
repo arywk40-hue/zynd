@@ -39,9 +39,9 @@ def plan(query: str) -> PlannedTasks:
         ),
         Subtask(
             id=str(uuid.uuid4()),
-            capability="regulatory-risk-analysis",
+            capability="risk-analysis",
             instruction="List key regulatory and technical feasibility risks with mitigations.",
-            keywords=["regulatory-risk-analysis", "technical-risk-analysis"],
+            keywords=["risk-analysis", "regulatory-risk-analysis", "technical-risk-analysis"],
         ),
     ]
 

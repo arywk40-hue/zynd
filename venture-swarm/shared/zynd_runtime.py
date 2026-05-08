@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from inspect import signature
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -71,7 +72,7 @@ def build_sdk_agent(
     agent_config = AgentConfig(
         name=name,
         description=config.get("description", default_description),
-        category=config.get("category", "market-intelligence"),
+        category=config.get("category", "startup-intelligence"),
         tags=config.get("tags", []),
         registry_url=registry_url,
         entity_url=service_url.rstrip("/"),
@@ -135,6 +136,8 @@ def sdk_agent_card(agent: ZyndAIAgent | None) -> dict[str, Any]:
         "category": agent.agent_config.category,
         "tags": agent.agent_config.tags or [],
         "capabilities": skills,
+        "protocols": ["webhook", "webhook-sync", "agent-card"],
+        "supported_models": [],
         "endpoints": {
             "invoke": f"{base_url}/webhook/sync",
             "invoke_async": f"{base_url}/webhook",
@@ -192,44 +195,141 @@ def sdk_a2a_card(agent: ZyndAIAgent | None) -> dict[str, Any]:
     return card
 
 
+def _sdk_search_function():
+    return getattr(dns_registry, "search_agents", None) or dns_registry.search_entities
+
+
+def _call_sdk_search(**kwargs):
+    sdk_search = _sdk_search_function()
+    supported = set(signature(sdk_search).parameters)
+    filtered = {key: value for key, value in kwargs.items() if key in supported}
+    return sdk_search(**filtered)
+
+
+def _search_results(result: Any) -> list[dict[str, Any]]:
+    if result is None:
+        return []
+    if isinstance(result, list):
+        return [item for item in result if isinstance(item, dict)]
+    if hasattr(result, "model_dump"):
+        result = result.model_dump()
+    if isinstance(result, dict):
+        values = result.get("results") or result.get("agents") or result.get("entities") or []
+        return [item for item in values if isinstance(item, dict)]
+    return []
+
+
+def _as_string_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item) for item in value if item is not None]
+    if isinstance(value, (tuple, set)):
+        return [str(item) for item in value if item is not None]
+    return [str(value)]
+
+
+def _iso_freshness_s(value: str | None) -> float | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return max(0.0, (datetime.now(timezone.utc) - parsed).total_seconds())
+
+
+def _extract_endpoint(item: dict[str, Any]) -> str:
+    card = item.get("card") or {}
+    endpoints = card.get("endpoints") or item.get("endpoints") or {}
+    for key in ("invoke", "webhook_sync", "webhook"):
+        endpoint = endpoints.get(key)
+        if endpoint:
+            if key in {"invoke", "webhook_sync"}:
+                return str(endpoint).removesuffix("/webhook/sync").rstrip("/")
+            return str(endpoint).removesuffix("/webhook").rstrip("/")
+    return str(item.get("agent_url") or item.get("entity_url") or "").rstrip("/")
+
+
+def _extract_capabilities(item: dict[str, Any]) -> list[str]:
+    card = item.get("card") or {}
+    capability_summary = item.get("capability_summary") or {}
+    skills = capability_summary.get("skills") or card.get("capabilities") or item.get("capabilities")
+    return _as_string_list(skills)
+
+
 def search_agents(
     *,
     registry_url: str,
-    keyword: str,
+    keyword: str | None = None,
+    query: str | None = None,
+    category: str | None = None,
+    tags: list[str] | None = None,
     skills: list[str] | None = None,
+    protocols: list[str] | None = None,
+    models: list[str] | None = None,
+    min_trust_score: float | None = None,
     status: str = "active",
-    limit: int = 10,
+    developer_handle: str | None = None,
+    entity_type: str = "agent",
+    max_results: int = 10,
+    federated: bool = True,
+    enrich: bool = True,
+    timeout_ms: int | None = 5000,
 ) -> list[CandidateAgent]:
-    result = dns_registry.search_entities(
+    effective_query = query or keyword or ""
+    result = _call_sdk_search(
         registry_url=registry_url,
-        query=keyword,
-        skills=skills or [keyword],
+        query=effective_query,
+        keyword=effective_query,
+        category=category,
+        tags=tags,
+        skills=skills or ([effective_query] if effective_query else None),
+        protocols=protocols,
+        models=models,
+        min_trust_score=min_trust_score,
         status=status,
-        entity_type="agent",
-        max_results=limit,
-        federated=False,
-        enrich=False,
+        developer_handle=developer_handle,
+        entity_type=entity_type,
+        max_results=max_results,
+        federated=federated,
+        enrich=enrich,
+        timeout_ms=timeout_ms,
     )
 
     candidates: list[CandidateAgent] = []
-    for item in result.get("results", []):
+    for item in _search_results(result):
         item_status = str(item.get("status", "unknown"))
-        if status != "any" and item_status != status:
+        if status != "any" and item_status not in {status, "online" if status == "active" else status}:
             continue
 
-        agent_url = str(item.get("agent_url") or item.get("entity_url") or "").rstrip("/")
+        agent_url = _extract_endpoint(item)
         if not agent_url:
             continue
+
+        card = item.get("card") or None
+        score = float(item.get("score", 0.0) or 0.0)
+        trust_score = float(item.get("trust_score", item.get("trust", score)) or 0.0)
+        last_heartbeat = item.get("last_heartbeat")
 
         candidates.append(
             CandidateAgent(
                 agent_id=str(item.get("agent_id") or item.get("entity_id") or "unknown"),
                 name=str(item.get("name", "unknown-agent")),
                 agent_url=agent_url,
-                search_score=float(item.get("score", 0.0) or 0.0),
+                search_score=score,
+                trust_score=trust_score,
                 status=item_status,
-                last_heartbeat=item.get("last_heartbeat"),
-                tags=list(item.get("tags", []) or []),
+                last_heartbeat=last_heartbeat,
+                freshness_s=_iso_freshness_s(last_heartbeat),
+                latency_s=item.get("latency_s") or item.get("latency"),
+                category=item.get("category") or (card or {}).get("category"),
+                tags=_as_string_list(item.get("tags") or (card or {}).get("tags")),
+                capabilities=_extract_capabilities(item),
+                protocols=_as_string_list(item.get("protocols") or (card or {}).get("protocols")),
+                models=_as_string_list(item.get("models") or (card or {}).get("supported_models")),
+                developer_handle=item.get("developer_handle"),
+                card=card,
             )
         )
 

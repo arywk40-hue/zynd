@@ -132,6 +132,6 @@ class VentureSwarmOrchestrator:
             funding=responses["funding-analysis"],
             competitors=responses["competitor-analysis"],
             market_gaps=responses["market-gap-analysis"],
-            risks=responses["regulatory-risk-analysis"],
+            risks=responses["risk-analysis"],
             agent_trace=trace,
         )

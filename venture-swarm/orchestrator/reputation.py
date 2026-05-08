@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict
 
+from shared.schemas import CandidateAgent
+
 
 @dataclass
 class AgentObservation:
@@ -25,6 +27,27 @@ class ReputationStore:
             + (obs.quality_score * 0.20)
             + (obs.reliability * 0.10)
             + (latency_component * 0.05)
+        )
+
+    def score_candidate(self, candidate: CandidateAgent) -> float:
+        obs = self.observed.get(candidate.agent_id, AgentObservation())
+        observed_latency = candidate.latency_s if candidate.latency_s is not None else obs.latency_s
+        latency_component = 1.0 / (1.0 + max(0.0, observed_latency))
+
+        freshness_component = 0.7
+        if candidate.freshness_s is not None:
+            freshness_component = max(0.0, min(1.0, 1.0 - (candidate.freshness_s / 300.0)))
+
+        heartbeat_component = 1.0 if candidate.status in {"active", "online"} else 0.0
+        trust_component = max(candidate.trust_score, candidate.search_score)
+
+        return (
+            (trust_component * 0.30)
+            + (heartbeat_component * 0.20)
+            + (obs.success_rate * 0.20)
+            + (latency_component * 0.15)
+            + (freshness_component * 0.10)
+            + (obs.quality_score * 0.05)
         )
 
     def update_observation(self, agent_id: str, *, latency_s: float, success: bool) -> None:

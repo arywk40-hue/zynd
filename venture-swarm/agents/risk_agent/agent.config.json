@@ -1,8 +1,9 @@
 {
   "name": "risk-agent",
   "description": "Assesses technical and regulatory feasibility risks.",
-  "category": "market-intelligence",
+  "category": "startup-intelligence",
   "tags": [
+    "startup",
     "risk",
     "regulatory",
     "regulatory-risk-analysis",
@@ -12,6 +13,7 @@
   "summary": "Technical and regulatory risk specialist",
   "capabilities": {
     "skills": [
+      "risk-analysis",
       "technical-risk-analysis",
       "regulatory-risk-analysis"
     ]

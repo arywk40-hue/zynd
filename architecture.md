@@ -19,7 +19,7 @@ This project is an application built on top of ZyndAI, not a reimplementation of
                       └─────────────────────────────┘
                                      │
              ┌───────────────────────┼───────────────────────┐
-             │ (Dynamic Discovery via Zynd `search_agents`)  │
+             │ (Dynamic Discovery via Zynd registry search)   │
              ▼                       ▼                       ▼
    ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
    │ TREND RESEARCH   │    │  COMPETITOR AI   │    │  FUNDING SYSTEM  │
@@ -65,7 +65,7 @@ Each agent is registered as an independent entity on the Zynd network using `Zyn
 This project heavily leverages the unique features of the Zynd SDK to prove the viability of a decentralized AI network:
 
 1. **Identity & Registration:** Every agent boots up with a distinct Ed25519 identity and registers an Entity Card containing its capabilities and tags.
-2. **Dynamic Discovery:** The Orchestrator does not hardcode worker IPs. It uses `search_agents(keyword="target-skill")` to find workers at runtime.
+2. **Dynamic Discovery:** The Orchestrator does not hardcode worker IPs. It uses the Zynd SDK registry search API with capability queries, tags, skills, active heartbeat status, `federated=True`, and `enrich=True` to find workers at runtime.
 3. **Agent-to-Agent Comms:** All task delegation occurs via `/webhook/sync`.
 4. **AI Economy:** Uses HTTP 402 Payment Required as the payment-required signal for premium data agents.
 
@@ -93,7 +93,7 @@ VentureSwarm does not implement mesh networking, gossip, DHT/Kademlia, registry 
 zynd-swarm/
 ├── orchestrator/
 │   ├── planner.py         # Breaks down the user prompt
-│   ├── discovery.py       # Interacts with Zynd search_agents()
+│   ├── discovery.py       # Interacts with Zynd registry search
 │   └── aggregator.py      # Combines the sub-agent responses
 ├── agents/
 │   ├── trend_agent/       # FastAPI app + Zynd SDK init

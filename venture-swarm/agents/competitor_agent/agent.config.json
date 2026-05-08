@@ -1,8 +1,9 @@
 {
   "name": "competitor-agent",
   "description": "Assesses existing solutions and competitive saturation.",
-  "category": "market-intelligence",
+  "category": "startup-intelligence",
   "tags": [
+    "startup",
     "competition",
     "moat",
     "positioning",

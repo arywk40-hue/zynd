@@ -1,10 +1,12 @@
 {
   "name": "funding-agent",
   "description": "Extracts investment signals and likely funding dynamics for startup ideas.",
-  "category": "market-intelligence",
+  "category": "startup-intelligence",
   "tags": [
+    "startup",
     "funding",
     "vc",
+    "venture-capital",
     "investment-signals",
     "funding-analysis"
   ],

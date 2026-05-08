@@ -69,7 +69,7 @@ async def lifespan(_: FastAPI):
 
     _process_message = build_startup_task_processor(
         agent=agent,
-        capability="regulatory-risk-analysis",
+        capability="risk-analysis",
         build_data=_build_data,
         base_notes=["No risk data source configured."],
     )

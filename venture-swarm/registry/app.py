@@ -42,12 +42,17 @@ class SearchV1Request(BaseModel):
     category: str | None = None
     tags: list[str] | None = None
     skills: list[str] | None = None
+    protocols: list[str] | None = None
+    models: list[str] | None = None
+    min_trust_score: float | None = None
     status: str | None = None
+    developer_handle: str | None = None
     entity_type: str | None = None
     max_results: int = 10
     offset: int = 0
     federated: bool = False
     enrich: bool = False
+    timeout_ms: int | None = None
 
 
 @dataclass
@@ -64,6 +69,10 @@ class _Entry:
     signature: str
     status: str
     score: float
+    trust_score: float
+    protocols: list[str]
+    models: list[str]
+    developer_handle: str | None
     last_heartbeat: str
     updated_mono: float
 
@@ -98,8 +107,12 @@ def _entry_to_search_result(entry: _Entry, enrich: bool) -> dict[str, Any]:
         "agent_url": entry.entity_url,
         "home_registry": str(settings.directory_url),
         "score": entry.score,
-        "score_breakdown": {"base": entry.score},
+        "trust_score": entry.trust_score,
+        "score_breakdown": {"base": entry.score, "trust": entry.trust_score},
         "status": entry.status,
+        "protocols": entry.protocols,
+        "models": entry.models,
+        "developer_handle": entry.developer_handle,
         "last_heartbeat": entry.last_heartbeat,
     }
     if enrich:
@@ -107,8 +120,12 @@ def _entry_to_search_result(entry: _Entry, enrich: bool) -> dict[str, Any]:
             "agent_id": entry.entity_id,
             "name": entry.name,
             "description": entry.summary,
+            "category": entry.category,
             "tags": entry.tags,
             "capabilities": entry.capability_summary.get("skills", []),
+            "protocols": entry.protocols,
+            "supported_models": entry.models,
+            "status": entry.status,
             "endpoints": {
                 "invoke": f"{entry.entity_url.rstrip('/')}/webhook/sync",
                 "invoke_async": f"{entry.entity_url.rstrip('/')}/webhook",
@@ -150,6 +167,10 @@ async def register_v1(req: RegisterAgentV1Request) -> RegisterAgentV1Response:
         signature=req.signature,
         status="registered",
         score=0.85,
+        trust_score=0.85,
+        protocols=["webhook", "webhook-sync", "agent-card"],
+        models=[],
+        developer_handle=None,
         last_heartbeat=_utc_now_iso(),
         updated_mono=time.monotonic(),
     )
@@ -177,18 +198,29 @@ async def update_entity_v1(entity_id: str, updates: dict[str, Any]) -> dict[str,
 @app.post("/v1/search")
 async def search_v1(req: SearchV1Request) -> dict[str, Any]:
     query = (req.query or "").strip().lower()
+    normalized_query = query.replace("-", " ")
     requested_tags = set((req.tags or []))
     requested_skills = set((req.skills or []))
+    requested_protocols = set((req.protocols or []))
+    requested_models = set((req.models or []))
 
     results: list[dict[str, Any]] = []
     for entry in _agents.values():
         if req.entity_type and entry.entity_type != req.entity_type:
             continue
 
-        if req.status and req.status != "any" and entry.status != req.status:
+        if req.status and req.status != "any":
+            requested_status = "active" if req.status == "online" else req.status
+            if entry.status != requested_status:
+                continue
+
+        if req.min_trust_score is not None and entry.trust_score < req.min_trust_score:
             continue
 
         if req.category and entry.category != req.category:
+            continue
+
+        if req.developer_handle and entry.developer_handle != req.developer_handle:
             continue
 
         if requested_tags and not requested_tags.intersection(set(entry.tags)):
@@ -198,13 +230,20 @@ async def search_v1(req: SearchV1Request) -> dict[str, Any]:
         if requested_skills and not requested_skills.intersection(entry_skills):
             continue
 
+        if requested_protocols and not requested_protocols.intersection(set(entry.protocols)):
+            continue
+
+        if requested_models and not requested_models.intersection(set(entry.models)):
+            continue
+
         haystack = " ".join([
             entry.name,
             entry.summary,
             " ".join(entry.tags),
             " ".join(list(entry_skills)),
         ]).lower()
-        if query and query not in haystack:
+        normalized_haystack = haystack.replace("-", " ")
+        if query and query not in haystack and normalized_query not in normalized_haystack:
             continue
 
         results.append(_entry_to_search_result(entry, req.enrich))

@@ -129,7 +129,21 @@ Use SDK-generated identity/card data where available. Do not hand-roll cryptogra
 The orchestrator should express discovery at the application level as:
 
 ```python
-search_agents(keyword="funding-analysis")
+search_agents(
+    query="funding analysis",
+    category="startup-intelligence",
+    tags=["startup", "funding", "venture-capital"],
+    skills=["funding-analysis"],
+    protocols=["webhook", "webhook-sync"],
+    status="active",
+    min_trust_score=0.0,
+    entity_type="agent",
+    max_results=10,
+    federated=True,
+    enrich=True,
+)
 ```
 
-The implementation may adapt this to the currently installed SDK discovery API, but it must remain heartbeat-aware and filter active agents only.
+Use the official SDK registry search API. Prefer `zyndai_agent.dns_registry.search_agents` when available; on SDK versions where the same real search API is exposed as `search_entities`, use that compatibility path rather than creating fake discovery.
+
+Discovery must remain heartbeat-aware, filter active agents only, enrich Agent Card metadata, and log ranking decisions with trust score, latency, heartbeat freshness, and selected target.

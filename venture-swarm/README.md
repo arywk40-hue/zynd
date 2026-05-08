@@ -8,7 +8,7 @@ Autonomous Startup Intelligence Swarm using the **real ZyndAI Agent SDK**.
 User Query
   ↓
 Orchestrator Agent (planner → discovery → ranking → async dispatch → aggregation)
-  ↓                             ↘ search_agents(keyword="funding-analysis")
+  ↓                             ↘ search_agents(..., federated=True, enrich=True)
 Zynd-compatible Directory (/v1/agents, /v1/search)
   ↑                                      ↓
 Agents (trend, funding, competitor, market-gap, risk)
@@ -92,7 +92,7 @@ The implementation uses real SDK APIs/classes:
 - `from zyndai_agent.agent import AgentConfig, ZyndAIAgent`
 - `from zyndai_agent.message import AgentMessage`
 - SDK runtime startup for registration, A2A sidecar, and heartbeat
-- `search_agents(keyword="...")` for heartbeat-aware runtime discovery
+- Zynd registry search for heartbeat-aware runtime discovery
 - `invoke(...)` for per-agent reasoning functions
 - `/webhook/sync` for inter-agent request/response messages
 
@@ -121,13 +121,20 @@ The SDK identity/keypair signs the card. Clients can fetch the card before invok
 ## Discovery Flow
 
 1. Orchestrator decomposes query into capability subtasks
-2. For each subtask, orchestrator calls `search_agents(keyword="<capability>")`
+2. For each subtask, orchestrator calls the Zynd SDK registry search with:
+   - `category="startup-intelligence"`
+   - capability-specific `query`, `tags`, and `skills`
+   - `protocols=["webhook", "webhook-sync"]`
+   - `status="active"`
+   - `federated=True`
+   - `enrich=True`
 3. Candidates are ranked by blended score:
-   - discovery score
-   - latency
+   - trust score
+   - heartbeat availability and freshness
+   - response latency
    - success rate
    - quality score
-   - reliability
+   - discovery score
 
 ## Dispatch, Parallelism, and Failover
 

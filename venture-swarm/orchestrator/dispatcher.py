@@ -32,6 +32,13 @@ class AgentDispatchHTTPError(RuntimeError):
 
 
 async def _candidate_healthy(candidate: CandidateAgent) -> bool:
+    if candidate.status not in {"active", "online"}:
+        log.warning("[Health] %s skipped because status=%s", candidate.name, candidate.status)
+        return False
+    if candidate.freshness_s is not None and candidate.freshness_s > 120:
+        log.warning("[Health] %s skipped because heartbeat is stale %.1fs", candidate.name, candidate.freshness_s)
+        return False
+
     health_url = f"{str(candidate.agent_url).rstrip('/')}/health"
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(3.0)) as client:

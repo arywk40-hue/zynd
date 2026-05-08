@@ -1,8 +1,10 @@
 {
   "name": "market-gap-agent",
   "description": "Detects underserved segments and framing for a strong wedge.",
-  "category": "market-intelligence",
+  "category": "startup-intelligence",
   "tags": [
+    "startup",
+    "market",
     "gaps",
     "wedge",
     "segmentation",

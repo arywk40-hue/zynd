@@ -70,9 +70,19 @@ class CandidateAgent(BaseModel):
     name: str
     agent_url: HttpUrl
     search_score: float = 0.0
+    trust_score: float = 0.0
+    rank_score: float = 0.0
     status: str = "unknown"
     last_heartbeat: str | None = None
+    freshness_s: float | None = None
+    latency_s: float | None = None
+    category: str | None = None
     tags: list[str] = Field(default_factory=list)
+    capabilities: list[str] = Field(default_factory=list)
+    protocols: list[str] = Field(default_factory=list)
+    models: list[str] = Field(default_factory=list)
+    developer_handle: str | None = None
+    card: dict[str, Any] | None = None
 
 
 class PlannedTasks(BaseModel):

@@ -1,8 +1,9 @@
 {
   "name": "trend-agent",
   "description": "Identifies relevant macro and micro trends for a startup idea.",
-  "category": "market-intelligence",
+  "category": "startup-intelligence",
   "tags": [
+    "startup",
     "trends",
     "markets",
     "timing",
