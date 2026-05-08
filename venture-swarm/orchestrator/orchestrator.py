@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 
+from zyndai_agent.agent import AgentConfig, ZyndAIAgent
+
 from orchestrator.aggregator import aggregate
 from orchestrator.discovery import discover_and_rank
 from orchestrator.dispatcher import dispatch_with_failover
@@ -10,7 +12,6 @@ from orchestrator.reputation import ReputationStore
 from shared.config import Settings
 from shared.schemas import StartupReport
 from shared.utils import get_logger
-from shared.zynd_sdk import ZyndClient
 
 
 log = get_logger("Orchestrator")
@@ -19,16 +20,28 @@ log = get_logger("Orchestrator")
 class VentureSwarmOrchestrator:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
-        self._client = ZyndClient(settings=settings)
         self._rep = ReputationStore()
+
+        registry_url = str(settings.zynd_registry_url or settings.directory_url)
+        self._agent = ZyndAIAgent(
+            AgentConfig(
+                name="venture-swarm-orchestrator",
+                description="Orchestrator agent for decentralized startup intelligence.",
+                category="orchestration",
+                tags=["orchestrator", "venture-swarm"],
+                webhook_port=settings.orchestrator_sdk_webhook_port,
+                registry_url=registry_url,
+                keypair_path=None,
+            )
+        )
+        self._agent.set_custom_agent(lambda input_text: input_text)
 
     async def run(self, query: str) -> StartupReport:
         tasks = plan(query)
 
-        # Discovery for each capability (parallel)
         discovery_results = await asyncio.gather(
             *[
-                discover_and_rank(client=self._client, store=self._rep, capability=t.capability)
+                discover_and_rank(orchestrator_agent=self._agent, store=self._rep, capability=t.capability)
                 for t in tasks.tasks
             ]
         )
@@ -43,6 +56,7 @@ class VentureSwarmOrchestrator:
             candidates = by_capability.get(t.capability, [])
             try:
                 return await dispatch_with_failover(
+                    sender_id=self._agent.agent_id,
                     task=t,
                     query=tasks.query,
                     candidates=candidates,
@@ -51,11 +65,11 @@ class VentureSwarmOrchestrator:
                 )
             except Exception as e:  # noqa: BLE001
                 log.warning("[Failover] Primary pool failed for %s: %s", t.capability, e)
-                # Dynamic rediscovery to simulate a changing decentralized network.
-                fresh = await discover_and_rank(client=self._client, store=self._rep, capability=t.capability)
+                fresh = await discover_and_rank(orchestrator_agent=self._agent, store=self._rep, capability=t.capability)
                 tried = {c.agent_id for c in candidates}
                 remaining = [c for c in fresh if c.agent_id not in tried] or fresh
                 return await dispatch_with_failover(
+                    sender_id=self._agent.agent_id,
                     task=t,
                     query=tasks.query,
                     candidates=remaining,
@@ -63,7 +77,6 @@ class VentureSwarmOrchestrator:
                     payment_token=payment_token,
                 )
 
-        # Dispatch all tasks in parallel; each task has its own failover + rediscovery.
         dispatches = await asyncio.gather(*[_run_task(t) for t in tasks.tasks])
 
         trace = [
@@ -78,7 +91,6 @@ class VentureSwarmOrchestrator:
             for d in dispatches
         ]
 
-        # Map responses for aggregation
         responses = {d.response.capability: d.response for d in dispatches}
 
         return aggregate(

@@ -1,0 +1,12 @@
+{
+  "name": "funding-agent",
+  "description": "Extracts investment signals and likely funding dynamics for startup ideas.",
+  "category": "market-intelligence",
+  "tags": ["funding", "vc", "investment-signals", "funding-analysis"],
+  "summary": "Funding analysis specialist for venture readiness",
+  "capabilities": {
+    "skills": ["funding-analysis", "vc-analysis", "investment-signals"]
+  },
+  "webhook_port": 9102,
+  "keypair_path": ".keys/funding-agent.key"
+}

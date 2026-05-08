@@ -1,0 +1,12 @@
+{
+  "name": "competitor-agent",
+  "description": "Assesses existing solutions and competitive saturation.",
+  "category": "market-intelligence",
+  "tags": ["competition", "moat", "positioning", "competitor-analysis"],
+  "summary": "Competitor landscape and saturation specialist",
+  "capabilities": {
+    "skills": ["competitor-analysis", "saturation-analysis"]
+  },
+  "webhook_port": 9103,
+  "keypair_path": ".keys/competitor-agent.key"
+}

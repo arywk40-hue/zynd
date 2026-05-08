@@ -6,7 +6,7 @@ import sys
 
 from fastapi import FastAPI
 
-from orchestrator.orchestrator import VentureSwarmOrchestrator
+from orchestrator.orchestrator_agent import VentureSwarmOrchestrator
 from shared.config import get_settings
 from shared.schemas import StartupQuery, StartupReport
 from shared.utils import get_logger, setup_logging
@@ -48,4 +48,3 @@ def _cli() -> int:
 if __name__ == "__main__":
     os.environ.setdefault("PYTHONUNBUFFERED", "1")
     raise SystemExit(_cli())
-

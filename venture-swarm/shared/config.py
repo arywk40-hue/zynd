@@ -13,11 +13,12 @@ class Settings(BaseSettings):
 
     premium_payment_token: str | None = None
 
-    # Agent registration/heartbeat
-    heartbeat_interval_s: float = 5.0
-    agent_ttl_s: float = 30.0
+    # SDK registry compatibility
+    zynd_registry_url: AnyHttpUrl | None = None
+
+    # SDK webhook sidecar ports (FastAPI uses service ports, SDK uses sidecar webhook ports)
+    orchestrator_sdk_webhook_port: int = 9201
 
 
 def get_settings() -> Settings:
     return Settings()
-

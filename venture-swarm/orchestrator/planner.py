@@ -23,7 +23,7 @@ def plan(query: str) -> PlannedTasks:
             id=str(uuid.uuid4()),
             capability="funding-analysis",
             instruction="Infer funding signals, likely buyer, and how VCs would view this opportunity.",
-            keywords=["funding-analysis", "vc-research", "investment-signals"],
+            keywords=["funding-analysis", "vc-analysis", "investment-signals"],
         ),
         Subtask(
             id=str(uuid.uuid4()),
@@ -41,9 +41,8 @@ def plan(query: str) -> PlannedTasks:
             id=str(uuid.uuid4()),
             capability="regulatory-risk-analysis",
             instruction="List key regulatory and technical feasibility risks with mitigations.",
-            keywords=["regulatory-risk-analysis", "technical-feasibility-analysis"],
+            keywords=["regulatory-risk-analysis", "technical-risk-analysis"],
         ),
     ]
 
     return PlannedTasks(query=query, tasks=tasks)
-

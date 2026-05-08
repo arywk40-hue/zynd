@@ -1,0 +1,12 @@
+{
+  "name": "market-gap-agent",
+  "description": "Detects underserved segments and framing for a strong wedge.",
+  "category": "market-intelligence",
+  "tags": ["gaps", "wedge", "segmentation", "market-gap-analysis"],
+  "summary": "Underserved market and wedge opportunity specialist",
+  "capabilities": {
+    "skills": ["underserved-market-detection", "market-gap-analysis"]
+  },
+  "webhook_port": 9104,
+  "keypair_path": ".keys/market-gap-agent.key"
+}
