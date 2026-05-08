@@ -64,10 +64,10 @@ Each agent is registered as an independent entity on the Zynd network using `Zyn
 
 This project heavily leverages the unique features of the Zynd SDK to prove the viability of a decentralized AI network:
 
-1. **Identity &amp; Registration:** Every agent boots up with a distinct Ed25519 identity and registers an Entity Card containing its capabilities and tags.
+1. **Identity & Registration:** Every agent boots up with a distinct Ed25519 identity and registers an Entity Card containing its capabilities and tags.
 2. **Dynamic Discovery:** The Orchestrator does not hardcode worker IPs. It uses `search_agents(keyword="target-skill")` to find workers at runtime.
 3. **Agent-to-Agent Comms:** All task delegation occurs via `/webhook/sync`.
-4. **AI Economy (Bonus):** Implements automated x402 USDC payments for "premium" data agents, proving out the concept of monetized machine-to-machine intelligence.
+4. **AI Economy (Bonus):** Implements automated x402 (HTTP 402 Payment Required-style) USDC payments for "premium" data agents, proving out the concept of monetized machine-to-machine intelligence.
 
 ---
 
