@@ -71,6 +71,7 @@ def _funding_trajectory(funding: list[dict]) -> FundingTrajectory | None:
 
 
 def _forecast_outcomes(opportunity_score: float, funding_strength: float, difficulty: str) -> OutcomeForecast:
+    """Blend opportunity and funding into breakout/steady/stall bands with bounded weights."""
     breakout = (opportunity_score / 10.0) * _FORECAST_OPPORTUNITY_WEIGHT + (funding_strength * _FORECAST_FUNDING_WEIGHT)
     breakout = max(_FORECAST_BREAKOUT_MIN, min(_FORECAST_BREAKOUT_MAX, breakout))
     stall = (1.0 - funding_strength) * _FORECAST_STALL_WEIGHT + (

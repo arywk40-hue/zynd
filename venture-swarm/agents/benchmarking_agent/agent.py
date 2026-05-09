@@ -151,7 +151,8 @@ def _request_financial_overlay(message: AgentMessage) -> tuple[list[dict], str |
     try:
         response = agent.x402_processor.post(sync_url, json=collab_message.to_dict(), timeout=12)
     except Exception as e:  # noqa: BLE001
-        if "Invalid payment required response" in str(e):
+        status_code = getattr(getattr(e, "response", None), "status_code", None)
+        if status_code in {400, 401, 402, 403, 500} or "payment" in str(e).lower():
             log.info("[Coordination] Falling back to direct HTTP for financial signals")
             response = requests.post(sync_url, json=collab_message.to_dict(), timeout=12)
         else:

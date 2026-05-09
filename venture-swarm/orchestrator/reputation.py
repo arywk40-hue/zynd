@@ -55,7 +55,9 @@ class ReputationStore:
         new_latency = (prev.latency_s * 0.8) + (latency_s * 0.2)
         new_success_rate = (prev.success_rate * 0.9) + ((1.0 if success else 0.0) * 0.1)
         new_reliability = (prev.reliability * 0.9) + ((1.0 if success else 0.0) * 0.1)
-        quality_score = prev.quality_score if quality_score is None else quality_score
+        if quality_score is None:
+            quality_score = prev.quality_score
+        quality_score = max(0.0, min(1.0, quality_score))
         new_quality = (prev.quality_score * 0.7) + (quality_score * 0.3)
         self.observed[agent_id] = AgentObservation(
             latency_s=new_latency,

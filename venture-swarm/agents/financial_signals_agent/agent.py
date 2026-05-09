@@ -32,6 +32,7 @@ setup_logging(settings.log_level)
 log = get_logger("financial-signals-agent")
 
 PORT = 8107
+WEBHOOK_PORT = 9107
 
 
 def _service_url() -> str:
@@ -77,7 +78,7 @@ async def lifespan(_: FastAPI):
         service_url=_service_url(),
         default_name="financial-signals-agent",
         default_description="Financial signals analysis agent",
-        default_port=9107,
+        default_port=WEBHOOK_PORT,
         config_dir=".agent-financial-signals",
     )
 

@@ -48,6 +48,19 @@ def _schema_quality(capability: str, data: list[dict]) -> float:
     return sum(scored) / len(scored)
 
 
+def _record_quality(
+    *,
+    store: ReputationStore,
+    candidate: CandidateAgent,
+    capability: str,
+    latency_s: float,
+    response: AgentTaskResponse,
+) -> None:
+    quality = _schema_quality(capability, response.data)
+    store.update_observation(candidate.agent_id, latency_s=latency_s, success=True, quality_score=quality)
+    log.info("[Metrics] %s schema_quality=%.2f", candidate.display_identity, quality)
+
+
 @dataclass(frozen=True)
 class DispatchResult:
     response: AgentTaskResponse
@@ -129,6 +142,10 @@ async def _call_agent(
     log.info("[Webhook] POST %s (%s)", sync_url, candidate.display_identity)
 
     def _post():
+        if _x402_enabled():
+            return sender_agent.x402_processor.post(sync_url, json=msg.to_dict(), headers=headers, timeout=12)
+        if payment_token:
+            return requests.post(sync_url, json=msg.to_dict(), headers=headers, timeout=12)
         try:
             return sender_agent.x402_processor.post(sync_url, json=msg.to_dict(), headers=headers, timeout=12)
         except Exception as e:  # noqa: BLE001
@@ -197,9 +214,13 @@ async def dispatch_with_failover(
                     in_reply_to=in_reply_to,
                 )
             )
-            quality = _schema_quality(task.capability, tr.value.data)
-            store.update_observation(candidate.agent_id, latency_s=tr.latency_s, success=True, quality_score=quality)
-            log.info("[Metrics] %s schema_quality=%.2f", candidate.display_identity, quality)
+            _record_quality(
+                store=store,
+                candidate=candidate,
+                capability=task.capability,
+                latency_s=tr.latency_s,
+                response=tr.value,
+            )
             if _candidate_requires_payment(candidate) and _x402_enabled():
                 log.info("\\[x402] Payment successful")
             return DispatchResult(response=tr.value, used_agent=candidate, latency_s=tr.latency_s, failovers=failovers)
@@ -220,9 +241,13 @@ async def dispatch_with_failover(
                         in_reply_to=in_reply_to,
                     )
                 )
-                quality = _schema_quality(task.capability, tr.value.data)
-                store.update_observation(candidate.agent_id, latency_s=tr.latency_s, success=True, quality_score=quality)
-                log.info("[Metrics] %s schema_quality=%.2f", candidate.display_identity, quality)
+                _record_quality(
+                    store=store,
+                    candidate=candidate,
+                    capability=task.capability,
+                    latency_s=tr.latency_s,
+                    response=tr.value,
+                )
                 return DispatchResult(response=tr.value, used_agent=candidate, latency_s=tr.latency_s, failovers=failovers)
                 except Exception as e2:  # noqa: BLE001
                     last_exc = e2
