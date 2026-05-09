@@ -161,6 +161,8 @@ VentureSwarm includes optional x402 readiness for premium intelligence agents. T
 
 The ZyndAI SDK derives each agent's EVM payment wallet from its Ed25519 identity. VentureSwarm does not generate blockchain wallets manually, store separate private keys, deploy smart contracts, or implement signing infrastructure.
 
+Docker Compose persists SDK key material in the `zynd-keys` named volume so agent IDs and derived wallet addresses survive normal rebuilds and restarts. Running `docker compose down -v` deletes that volume and rotates wallets.
+
 Default payment network:
 
 - Network: Base Sepolia

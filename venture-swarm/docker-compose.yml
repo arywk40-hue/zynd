@@ -28,6 +28,8 @@ services:
       - competitor-agent
       - market-gap-agent
       - risk-agent
+    volumes:
+      - zynd-keys:/app/.keys
     environment:
       - DIRECTORY_URL=http://directory:8000
       - ZYND_REGISTRY_URL=http://directory:8000
@@ -56,6 +58,8 @@ services:
       - "8101:8101"
     depends_on:
       - directory
+    volumes:
+      - zynd-keys:/app/.keys
     environment:
       - DIRECTORY_URL=http://directory:8000
       - ZYND_REGISTRY_URL=http://directory:8000
@@ -102,6 +106,8 @@ services:
       - "8102:8102"
     depends_on:
       - directory
+    volumes:
+      - zynd-keys:/app/.keys
     environment:
       - DIRECTORY_URL=http://directory:8000
       - ZYND_REGISTRY_URL=http://directory:8000
@@ -150,6 +156,8 @@ services:
       - "8103:8103"
     depends_on:
       - directory
+    volumes:
+      - zynd-keys:/app/.keys
     environment:
       - DIRECTORY_URL=http://directory:8000
       - ZYND_REGISTRY_URL=http://directory:8000
@@ -196,6 +204,8 @@ services:
       - "8104:8104"
     depends_on:
       - directory
+    volumes:
+      - zynd-keys:/app/.keys
     environment:
       - DIRECTORY_URL=http://directory:8000
       - ZYND_REGISTRY_URL=http://directory:8000
@@ -242,6 +252,8 @@ services:
       - "8105:8105"
     depends_on:
       - directory
+    volumes:
+      - zynd-keys:/app/.keys
     environment:
       - DIRECTORY_URL=http://directory:8000
       - ZYND_REGISTRY_URL=http://directory:8000
@@ -279,3 +291,6 @@ services:
       interval: 15s
       timeout: 3s
       retries: 3
+
+volumes:
+  zynd-keys:
