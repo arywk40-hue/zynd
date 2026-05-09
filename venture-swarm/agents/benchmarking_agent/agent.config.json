@@ -1,0 +1,24 @@
+{
+  "name": "benchmarking-agent",
+  "developer_handle": "venture-swarm",
+  "entity_name": "benchmarking-agent",
+  "version": "0.1.0",
+  "description": "Builds comparable startup sets and similarity signals for YC-style benchmarking.",
+  "category": "startup-intelligence",
+  "tags": [
+    "startup",
+    "benchmarking",
+    "comps",
+    "comparables",
+    "benchmarking-analysis"
+  ],
+  "summary": "Comparable startup benchmarking specialist",
+  "capabilities": {
+    "skills": [
+      "benchmarking-analysis",
+      "comparable-startups",
+      "comp-set-analysis"
+    ]
+  },
+  "webhook_port": 9106
+}

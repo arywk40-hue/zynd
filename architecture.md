@@ -54,6 +54,8 @@ This project is an application built on top of ZyndAI, not a reimplementation of
 Each agent is registered as an independent entity on the Zynd network using `ZyndAIAgent(...)`.
 
 * **Trend Research Agent:** Utilizes Tavily/SerpAPI to find market momentum.
+* **Benchmarking Agent:** Builds comparable startup sets and similarity signals.
+* **Financial Signals Agent:** Estimates burn/runway, margin, and unit economics proxies.
 * **Competitor Analysis Agent:** Analyzes saturation and existing solutions.
 * **Funding Intelligence Agent:** Tracks funding data and can be gated behind a payment flow signaled via HTTP 402 Payment Required.
 * **Risk Analysis Agent:** Evaluates regulatory and technical barriers.
@@ -96,9 +98,11 @@ zynd-swarm/
 │   ├── discovery.py       # Interacts with Zynd registry search
 │   └── aggregator.py      # Combines the sub-agent responses
 ├── agents/
-│   ├── trend_agent/       # FastAPI app + Zynd SDK init
-│   ├── competitor_agent/  # FastAPI app + Zynd SDK init
-│   └── funding_agent/     # FastAPI app + Zynd SDK init
+│   ├── trend_agent/            # FastAPI app + Zynd SDK init
+│   ├── benchmarking_agent/     # FastAPI app + Zynd SDK init
+│   ├── financial_signals_agent/ # FastAPI app + Zynd SDK init
+│   ├── competitor_agent/       # FastAPI app + Zynd SDK init
+│   └── funding_agent/          # FastAPI app + Zynd SDK init
 ├── core/
 │   ├── prompts.py         # System instructions for all models
 │   └── schemas.py         # Pydantic models for strict JSON outputs
