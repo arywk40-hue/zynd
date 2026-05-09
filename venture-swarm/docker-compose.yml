@@ -7,6 +7,8 @@ services:
       - "8000:8000"
     environment:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ZNS_ROOT=${ZNS_ROOT:-zns01.zynd.ai}
+      - ZNS_DEVELOPER_HANDLE=${ZNS_DEVELOPER_HANDLE:-venture-swarm}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2).read()"]
       interval: 15s
@@ -30,6 +32,14 @@ services:
       - DIRECTORY_URL=http://directory:8000
       - ZYND_REGISTRY_URL=http://directory:8000
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ZNS_ROOT=${ZNS_ROOT:-zns01.zynd.ai}
+      - ZNS_DEVELOPER_HANDLE=${ZNS_DEVELOPER_HANDLE:-venture-swarm}
+      - X402_ENABLED=${X402_ENABLED:-false}
+      - X402_NETWORK=${X402_NETWORK:-eip155:84532}
+      - X402_NETWORK_NAME=${X402_NETWORK_NAME:-Base Sepolia}
+      - X402_USDC_ASSET=${X402_USDC_ASSET:-0x036CbD53842c5426634e7929541eC2318f3dCF7e}
+      - X402_FACILITATOR_URL=${X402_FACILITATOR_URL:-https://x402.org/facilitator}
+      - X402_SYNC_FACILITATOR_ON_START=${X402_SYNC_FACILITATOR_ON_START:-true}
       - PREMIUM_PAYMENT_TOKEN=${PREMIUM_PAYMENT_TOKEN:-}
       - ORCHESTRATOR_SDK_WEBHOOK_PORT=9201
     healthcheck:
@@ -51,6 +61,14 @@ services:
       - ZYND_REGISTRY_URL=http://directory:8000
       - SERVICE_URL=http://trend-agent:8101
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ZNS_ROOT=${ZNS_ROOT:-zns01.zynd.ai}
+      - ZNS_DEVELOPER_HANDLE=${ZNS_DEVELOPER_HANDLE:-venture-swarm}
+      - X402_ENABLED=${X402_ENABLED:-false}
+      - X402_NETWORK=${X402_NETWORK:-eip155:84532}
+      - X402_NETWORK_NAME=${X402_NETWORK_NAME:-Base Sepolia}
+      - X402_USDC_ASSET=${X402_USDC_ASSET:-0x036CbD53842c5426634e7929541eC2318f3dCF7e}
+      - X402_FACILITATOR_URL=${X402_FACILITATOR_URL:-https://x402.org/facilitator}
+      - X402_SYNC_FACILITATOR_ON_START=${X402_SYNC_FACILITATOR_ON_START:-true}
       - LLM_PROVIDER=${LLM_PROVIDER:-none}
       - LLM_TIMEOUT_S=${LLM_TIMEOUT_S:-20}
       - LLM_MAX_ITEMS=${LLM_MAX_ITEMS:-5}
@@ -89,6 +107,14 @@ services:
       - ZYND_REGISTRY_URL=http://directory:8000
       - SERVICE_URL=http://funding-agent:8102
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ZNS_ROOT=${ZNS_ROOT:-zns01.zynd.ai}
+      - ZNS_DEVELOPER_HANDLE=${ZNS_DEVELOPER_HANDLE:-venture-swarm}
+      - X402_ENABLED=${X402_ENABLED:-false}
+      - X402_NETWORK=${X402_NETWORK:-eip155:84532}
+      - X402_NETWORK_NAME=${X402_NETWORK_NAME:-Base Sepolia}
+      - X402_USDC_ASSET=${X402_USDC_ASSET:-0x036CbD53842c5426634e7929541eC2318f3dCF7e}
+      - X402_FACILITATOR_URL=${X402_FACILITATOR_URL:-https://x402.org/facilitator}
+      - X402_SYNC_FACILITATOR_ON_START=${X402_SYNC_FACILITATOR_ON_START:-true}
       - PREMIUM_COST_USD=0.10
       - PREMIUM_REQUIRED=true
       - LLM_PROVIDER=${LLM_PROVIDER:-none}
@@ -129,6 +155,14 @@ services:
       - ZYND_REGISTRY_URL=http://directory:8000
       - SERVICE_URL=http://competitor-agent:8103
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ZNS_ROOT=${ZNS_ROOT:-zns01.zynd.ai}
+      - ZNS_DEVELOPER_HANDLE=${ZNS_DEVELOPER_HANDLE:-venture-swarm}
+      - X402_ENABLED=${X402_ENABLED:-false}
+      - X402_NETWORK=${X402_NETWORK:-eip155:84532}
+      - X402_NETWORK_NAME=${X402_NETWORK_NAME:-Base Sepolia}
+      - X402_USDC_ASSET=${X402_USDC_ASSET:-0x036CbD53842c5426634e7929541eC2318f3dCF7e}
+      - X402_FACILITATOR_URL=${X402_FACILITATOR_URL:-https://x402.org/facilitator}
+      - X402_SYNC_FACILITATOR_ON_START=${X402_SYNC_FACILITATOR_ON_START:-true}
       - LLM_PROVIDER=${LLM_PROVIDER:-none}
       - LLM_TIMEOUT_S=${LLM_TIMEOUT_S:-20}
       - LLM_MAX_ITEMS=${LLM_MAX_ITEMS:-5}
@@ -167,6 +201,14 @@ services:
       - ZYND_REGISTRY_URL=http://directory:8000
       - SERVICE_URL=http://market-gap-agent:8104
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ZNS_ROOT=${ZNS_ROOT:-zns01.zynd.ai}
+      - ZNS_DEVELOPER_HANDLE=${ZNS_DEVELOPER_HANDLE:-venture-swarm}
+      - X402_ENABLED=${X402_ENABLED:-false}
+      - X402_NETWORK=${X402_NETWORK:-eip155:84532}
+      - X402_NETWORK_NAME=${X402_NETWORK_NAME:-Base Sepolia}
+      - X402_USDC_ASSET=${X402_USDC_ASSET:-0x036CbD53842c5426634e7929541eC2318f3dCF7e}
+      - X402_FACILITATOR_URL=${X402_FACILITATOR_URL:-https://x402.org/facilitator}
+      - X402_SYNC_FACILITATOR_ON_START=${X402_SYNC_FACILITATOR_ON_START:-true}
       - LLM_PROVIDER=${LLM_PROVIDER:-none}
       - LLM_TIMEOUT_S=${LLM_TIMEOUT_S:-20}
       - LLM_MAX_ITEMS=${LLM_MAX_ITEMS:-5}
@@ -205,6 +247,14 @@ services:
       - ZYND_REGISTRY_URL=http://directory:8000
       - SERVICE_URL=http://risk-agent:8105
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ZNS_ROOT=${ZNS_ROOT:-zns01.zynd.ai}
+      - ZNS_DEVELOPER_HANDLE=${ZNS_DEVELOPER_HANDLE:-venture-swarm}
+      - X402_ENABLED=${X402_ENABLED:-false}
+      - X402_NETWORK=${X402_NETWORK:-eip155:84532}
+      - X402_NETWORK_NAME=${X402_NETWORK_NAME:-Base Sepolia}
+      - X402_USDC_ASSET=${X402_USDC_ASSET:-0x036CbD53842c5426634e7929541eC2318f3dCF7e}
+      - X402_FACILITATOR_URL=${X402_FACILITATOR_URL:-https://x402.org/facilitator}
+      - X402_SYNC_FACILITATOR_ON_START=${X402_SYNC_FACILITATOR_ON_START:-true}
       - LLM_PROVIDER=${LLM_PROVIDER:-none}
       - LLM_TIMEOUT_S=${LLM_TIMEOUT_S:-20}
       - LLM_MAX_ITEMS=${LLM_MAX_ITEMS:-5}

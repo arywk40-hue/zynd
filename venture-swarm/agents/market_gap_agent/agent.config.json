@@ -1,5 +1,8 @@
 {
   "name": "market-gap-agent",
+  "developer_handle": "venture-swarm",
+  "entity_name": "market-gap-agent",
+  "version": "0.1.0",
   "description": "Detects underserved segments and framing for a strong wedge.",
   "category": "startup-intelligence",
   "tags": [

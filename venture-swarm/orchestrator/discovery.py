@@ -7,7 +7,7 @@ from zyndai_agent.agent import ZyndAIAgent
 from orchestrator.reputation import ReputationStore
 from shared.schemas import CandidateAgent
 from shared.utils import get_logger
-from shared.zynd_runtime import search_agents
+from shared.zynd_runtime import parse_zns_fqan, search_agents
 
 
 log = get_logger("Discovery")
@@ -17,26 +17,31 @@ _DISCOVERY_PROFILES = {
         "query": "trend analysis",
         "tags": ["startup", "trends", "trend-analysis"],
         "skills": ["trend-analysis", "startup-trends"],
+        "entity_name": "trend-agent",
     },
     "funding-analysis": {
         "query": "funding analysis",
         "tags": ["startup", "funding", "venture-capital", "funding-analysis"],
         "skills": ["funding-analysis", "vc-analysis", "investment-signals"],
+        "entity_name": "funding-agent",
     },
     "competitor-analysis": {
         "query": "competitor analysis",
         "tags": ["startup", "competition", "competitor-analysis"],
         "skills": ["competitor-analysis", "saturation-analysis"],
+        "entity_name": "competitor-agent",
     },
     "market-gap-analysis": {
         "query": "market gap analysis",
         "tags": ["startup", "market", "market-gap-analysis"],
         "skills": ["market-gap-analysis", "underserved-market-detection"],
+        "entity_name": "market-gap-agent",
     },
     "risk-analysis": {
         "query": "risk analysis",
         "tags": ["startup", "risk", "risk-analysis"],
         "skills": ["risk-analysis", "regulatory-risk-analysis", "technical-risk-analysis"],
+        "entity_name": "risk-agent",
     },
 }
 
@@ -49,6 +54,10 @@ async def discover_and_rank(*, orchestrator_agent: ZyndAIAgent, store: Reputatio
     tags = list(profile["tags"])
     skills = list(profile["skills"])
     query = str(profile["query"])
+    developer_handle, _ = parse_zns_fqan(getattr(orchestrator_agent.agent_config, "fqan", None))
+    developer_handle = developer_handle or "venture-swarm"
+    root = str(getattr(orchestrator_agent.agent_config, "fqan", "zns01.zynd.ai")).split(f"/{developer_handle}/")[0]
+    fqan_hint = f"{root}/{developer_handle}/{profile.get('entity_name', capability)}"
 
     log.info(
         "[Discovery] Searching %s agents query=%r category=startup-intelligence tags=%s federated=True enrich=True",
@@ -56,6 +65,7 @@ async def discover_and_rank(*, orchestrator_agent: ZyndAIAgent, store: Reputatio
         query,
         tags,
     )
+    log.info("[Resolution] Resolving latest %s version", fqan_hint)
     log.info("[Discovery] Filtering active agents only")
 
     candidates = await asyncio.to_thread(
@@ -68,6 +78,7 @@ async def discover_and_rank(*, orchestrator_agent: ZyndAIAgent, store: Reputatio
             protocols=["webhook", "webhook-sync"],
             min_trust_score=0.0,
             status="active",
+            developer_handle=developer_handle,
             max_results=10,
             federated=True,
             enrich=True,
@@ -81,13 +92,16 @@ async def discover_and_rank(*, orchestrator_agent: ZyndAIAgent, store: Reputatio
     log.info("[Discovery] Found %d active compatible agents", len(ranked))
     for candidate in ranked:
         log.info(
-            "[Ranking] %s trust=%.2f latency=%s freshness=%s score=%.2f",
-            candidate.name,
+            "[Ranking] %s trust=%.2f status=%s latency=%s freshness=%s score=%.2f endpoint=%s",
+            candidate.display_identity,
             candidate.trust_score,
+            candidate.status,
             f"{candidate.latency_s:.2f}s" if candidate.latency_s is not None else "unknown",
             f"{candidate.freshness_s:.1f}s" if candidate.freshness_s is not None else "unknown",
             candidate.rank_score,
+            str(candidate.agent_url),
         )
     if ranked:
-        log.info("[Selection] %s selected", ranked[0].name)
+        log.info("[ZNS] Resolved: %s -> %s", ranked[0].display_identity, ranked[0].agent_id)
+        log.info("[Selection] %s selected", ranked[0].display_identity)
     return ranked

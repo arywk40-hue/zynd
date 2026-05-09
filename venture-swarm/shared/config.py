@@ -13,6 +13,20 @@ class Settings(BaseSettings):
 
     premium_payment_token: str | None = None
 
+    # Zynd Naming Service display identity. Agents still keep their signed
+    # cryptographic IDs, but logs/UI use the FQAN for human-readable routing.
+    zns_root: str = "zns01.zynd.ai"
+    zns_developer_handle: str = "venture-swarm"
+
+    # Optional x402 / Base Sepolia showcase. The SDK derives the EVM wallet from
+    # the agent Ed25519 identity; these values only select the payment network.
+    x402_enabled: bool = False
+    x402_network: str = "eip155:84532"
+    x402_network_name: str = "Base Sepolia"
+    x402_usdc_asset: str = "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+    x402_facilitator_url: str = "https://x402.org/facilitator"
+    x402_sync_facilitator_on_start: bool = True
+
     # LLM provider configuration. Leave LLM_PROVIDER unset/none to keep agents in
     # no-data mode; set it with the matching API key for live reasoning.
     llm_provider: str = "none"

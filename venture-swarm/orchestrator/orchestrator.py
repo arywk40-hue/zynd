@@ -16,11 +16,14 @@ from shared.config import Settings
 from shared.schemas import StartupReport
 from shared.utils import get_logger
 from shared.zynd_runtime import (
+    build_zns_fqan,
     ensure_local_developer_keypair,
     ensure_sdk_keypair,
     heartbeat_connected,
     search_agents,
     sdk_agent_id,
+    sdk_payment_status,
+    sdk_zns_identity,
     start_sdk_runtime,
     stop_sdk_runtime,
 )
@@ -63,18 +66,22 @@ class VentureSwarmOrchestrator:
             AgentConfig(
                 name="venture-swarm-orchestrator",
                 description="Orchestrator agent for decentralized startup intelligence.",
+                version="0.1.0",
                 category="orchestration",
                 tags=["orchestrator", "venture-swarm"],
                 server_port=settings.orchestrator_sdk_webhook_port,
                 registry_url=registry_url,
                 keypair_path=keypair_path,
                 config_dir=".agent-orchestrator",
+                fqan=build_zns_fqan(settings.zns_root, settings.zns_developer_handle, "orchestrator"),
             )
         )
         self._agent.set_custom_agent(lambda input_text: input_text)
 
     def start(self) -> None:
         start_sdk_runtime(self._agent)
+        identity = sdk_zns_identity(self._agent)
+        log.info("[ZNS] Orchestrator identity: %s", identity["fqan"])
         log.info("[Heartbeat] venture-swarm-orchestrator connected to registry")
         log.info("[Health] venture-swarm-orchestrator startup complete")
 
@@ -83,9 +90,14 @@ class VentureSwarmOrchestrator:
         stop_sdk_runtime(self._agent)
 
     def health(self) -> dict:
-        return {
+        identity = sdk_zns_identity(self._agent)
+        health = {
             "status": "healthy",
             "agent_id": sdk_agent_id(self._agent),
+            "fqan": identity["fqan"],
+            "developer_handle": identity["developer_handle"],
+            "entity_name": identity["entity_name"],
+            "version": identity["version"],
             "heartbeat_connected": heartbeat_connected(self._agent),
             "uptime_seconds": round(self._metrics.uptime_seconds, 3),
             "tasks_dispatched": self._metrics.tasks_dispatched,
@@ -95,6 +107,8 @@ class VentureSwarmOrchestrator:
             "average_orchestration_time_s": round(self._metrics.average_orchestration_time_s, 3),
             "last_error": self._metrics.last_error,
         }
+        health.update(sdk_payment_status(self._agent, settings=self._settings))
+        return health
 
     async def network(self) -> dict:
         registry_url = str(self._settings.zynd_registry_url or self._settings.directory_url).rstrip("/")
@@ -104,6 +118,7 @@ class VentureSwarmOrchestrator:
                     registry_url=registry_url,
                     query="",
                     status="active",
+                    developer_handle=self._settings.zns_developer_handle,
                     entity_type="agent",
                     max_results=50,
                     federated=True,
@@ -124,7 +139,7 @@ class VentureSwarmOrchestrator:
 
         seen: set[str] = set()
         agents = []
-        for candidate in sorted(candidates, key=lambda item: item.name):
+        for candidate in sorted(candidates, key=lambda item: item.display_identity):
             if candidate.agent_id in seen:
                 continue
             seen.add(candidate.agent_id)
@@ -132,6 +147,10 @@ class VentureSwarmOrchestrator:
                 {
                     "name": candidate.name,
                     "agent_id": candidate.agent_id,
+                    "fqan": candidate.fqan,
+                    "entity_name": candidate.entity_name,
+                    "version": candidate.version,
+                    "developer_handle": candidate.developer_handle,
                     "status": candidate.status,
                     "category": candidate.category,
                     "capabilities": candidate.capabilities,
@@ -175,6 +194,8 @@ class VentureSwarmOrchestrator:
         payment_token = self._settings.premium_payment_token
         if payment_token:
             log.info("[Orchestrator] Premium payment token configured.")
+        if self._settings.x402_enabled:
+            log.info("\\[x402] SDK-native Base Sepolia payment routing enabled.")
 
         async def _run_task(t):
             candidates = by_capability.get(t.capability, [])
@@ -195,6 +216,8 @@ class VentureSwarmOrchestrator:
                 tried = {c.agent_id for c in candidates}
                 remaining = [c for c in fresh if c.agent_id not in tried] or fresh
                 log.warning("[Recovery] Retrying %s task dispatch with %d candidate(s)", t.capability, len(remaining))
+                if remaining:
+                    log.warning("[Recovery] %s selected", remaining[0].display_identity)
                 return await dispatch_with_failover(
                     sender_agent=self._agent,
                     task=t,
@@ -215,6 +238,8 @@ class VentureSwarmOrchestrator:
                 "capability": d.response.capability,
                 "agent": d.used_agent.name,
                 "agent_id": d.used_agent.agent_id,
+                "agent_fqan": d.used_agent.fqan,
+                "agent_version": d.used_agent.version,
                 "latency_s": round(d.latency_s, 3),
                 "failovers": d.failovers,
                 "conversation_id": conversation_id,

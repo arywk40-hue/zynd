@@ -1,5 +1,8 @@
 {
   "name": "risk-agent",
+  "developer_handle": "venture-swarm",
+  "entity_name": "risk-agent",
+  "version": "0.1.0",
   "description": "Assesses technical and regulatory feasibility risks.",
   "category": "startup-intelligence",
   "tags": [

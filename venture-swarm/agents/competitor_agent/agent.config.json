@@ -1,5 +1,8 @@
 {
   "name": "competitor-agent",
+  "developer_handle": "venture-swarm",
+  "entity_name": "competitor-agent",
+  "version": "0.1.0",
   "description": "Assesses existing solutions and competitive saturation.",
   "category": "startup-intelligence",
   "tags": [

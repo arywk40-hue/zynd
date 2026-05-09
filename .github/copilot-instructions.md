@@ -172,3 +172,22 @@ Visible log categories:
 Every agent `/health` response must stay lightweight and include `status`, `agent_id`, `heartbeat_connected`, `uptime_seconds`, `webhook_requests_total`, `webhook_failures_total`, `average_latency_s`, `success_rate`, and `last_heartbeat`.
 
 The orchestrator should expose aggregate metrics in `/health`: dispatched tasks, failovers, active agents, total runs, average orchestration time, and last error.
+
+## Advanced Prompt Backlog
+
+Keep advanced optional implementation prompts in `venture-swarm/docs/advanced-implementation-prompts.md`.
+
+Only work on those prompts after the core system is stable:
+
+- discovery
+- heartbeat
+- webhooks
+- failover
+- observability
+
+The advanced backlog currently covers:
+
+- agent-to-agent messaging
+- deeper reputation scoring
+- deployer.zynd.ai readiness
+- optional x402 premium agents

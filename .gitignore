@@ -3,6 +3,8 @@ __pycache__/
 
 .venv/
 .python-version
+.env
+venture-swarm/.env
 
 # VentureSwarm runtime artifacts
 venture-swarm/.keys/

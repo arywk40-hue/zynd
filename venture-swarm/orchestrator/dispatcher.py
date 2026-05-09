@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from dataclasses import dataclass
 
 import httpx
@@ -14,6 +15,16 @@ from shared.utils import get_logger, timed
 
 
 log = get_logger("Dispatch")
+
+
+def _x402_enabled() -> bool:
+    return os.getenv("X402_ENABLED", "false").lower() in {"1", "true", "yes", "on"}
+
+
+def _candidate_requires_payment(candidate: CandidateAgent) -> bool:
+    card = candidate.card or {}
+    payment = card.get("payment") or {}
+    return bool(card.get("pricing") or payment.get("premium_required"))
 
 
 @dataclass(frozen=True)
@@ -33,13 +44,13 @@ class AgentDispatchHTTPError(RuntimeError):
 
 async def _candidate_healthy(candidate: CandidateAgent) -> bool:
     if candidate.status not in {"active", "online"}:
-        log.warning("[Health] %s skipped because status=%s", candidate.name, candidate.status)
-        log.warning("[Recovery] Removing %s from active pool", candidate.name)
+        log.warning("[Health] %s skipped because status=%s", candidate.display_identity, candidate.status)
+        log.warning("[Recovery] Removing %s from active pool", candidate.display_identity)
         return False
     if candidate.freshness_s is not None and candidate.freshness_s > 120:
-        log.warning("[Health] %s skipped because heartbeat is stale %.1fs", candidate.name, candidate.freshness_s)
-        log.warning("[CRASH] %s failed heartbeat freshness check", candidate.name)
-        log.warning("[Recovery] Removing %s from active pool", candidate.name)
+        log.warning("[Health] %s skipped because heartbeat is stale %.1fs", candidate.display_identity, candidate.freshness_s)
+        log.warning("[CRASH] %s failed heartbeat freshness check", candidate.display_identity)
+        log.warning("[Recovery] Removing %s from active pool", candidate.display_identity)
         return False
 
     health_url = f"{str(candidate.agent_url).rstrip('/')}/health"
@@ -47,20 +58,20 @@ async def _candidate_healthy(candidate: CandidateAgent) -> bool:
         async with httpx.AsyncClient(timeout=httpx.Timeout(3.0)) as client:
             response = await client.get(health_url)
         if response.status_code != 200:
-            log.warning("[Health] %s returned HTTP %s", candidate.name, response.status_code)
+            log.warning("[Health] %s returned HTTP %s", candidate.display_identity, response.status_code)
             return False
         payload = response.json()
         heartbeat_ok = payload.get("heartbeat_connected")
         is_healthy = payload.get("status") in {"healthy", "ok"} and heartbeat_ok is not False
         if not is_healthy:
-            log.warning("[Health] %s unhealthy: %s", candidate.name, payload)
-            log.warning("[CRASH] %s became unhealthy or disconnected", candidate.name)
-            log.warning("[Recovery] Removing %s from active pool", candidate.name)
+            log.warning("[Health] %s unhealthy: %s", candidate.display_identity, payload)
+            log.warning("[CRASH] %s became unhealthy or disconnected", candidate.display_identity)
+            log.warning("[Recovery] Removing %s from active pool", candidate.display_identity)
         return bool(is_healthy)
     except Exception as e:  # noqa: BLE001
-        log.warning("[Error] %s health check failed: %s", candidate.name, e)
-        log.warning("[CRASH] %s unreachable during health check", candidate.name)
-        log.warning("[Recovery] Removing %s from active pool", candidate.name)
+        log.warning("[Error] %s health check failed: %s", candidate.display_identity, e)
+        log.warning("[CRASH] %s unreachable during health check", candidate.display_identity)
+        log.warning("[Recovery] Removing %s from active pool", candidate.display_identity)
         return False
 
 
@@ -94,9 +105,11 @@ async def _call_agent(
     )
 
     sync_url = f"{str(candidate.agent_url).rstrip('/')}/webhook/sync"
-    log.info("[Webhook] POST %s", sync_url)
+    log.info("[Webhook] POST %s (%s)", sync_url, candidate.display_identity)
 
     def _post():
+        if _x402_enabled():
+            return sender_agent.x402_processor.post(sync_url, json=msg.to_dict(), headers=headers, timeout=12)
         if payment_token:
             return requests.post(sync_url, json=msg.to_dict(), headers=headers, timeout=12)
         try:
@@ -140,10 +153,14 @@ async def dispatch_with_failover(
 
     for idx, candidate in enumerate(candidates):
         if idx == 0:
-            log.info("[Dispatch] Sending task to %s...", candidate.name)
+            log.info("[Dispatch] Sending task to %s...", candidate.display_identity)
         else:
-            log.warning("[Failover] Trying replacement %s...", candidate.name)
+            log.warning("[Failover] Trying replacement %s...", candidate.display_identity)
+            log.warning("[Resolution] Resolving latest %s version", candidate.entity_name or task.capability)
             failovers += 1
+
+        if _candidate_requires_payment(candidate):
+            log.info("\\[x402] Premium candidate detected: %s", candidate.display_identity)
 
         if not await _candidate_healthy(candidate):
             store.update_observation(candidate.agent_id, latency_s=3.0, success=False)
@@ -164,12 +181,14 @@ async def dispatch_with_failover(
                 )
             )
             store.update_observation(candidate.agent_id, latency_s=tr.latency_s, success=True)
+            if _candidate_requires_payment(candidate) and _x402_enabled():
+                log.info("\\[x402] Payment successful")
             return DispatchResult(response=tr.value, used_agent=candidate, latency_s=tr.latency_s, failovers=failovers)
         except AgentDispatchHTTPError as e:
             store.update_observation(candidate.agent_id, latency_s=2.5, success=False)
             last_exc = e
             if e.status_code == 402 and payment_token:
-                log.warning("[Payment] %s requires payment; retrying with token...", candidate.name)
+                log.warning("\\[x402] %s requires payment; retrying with configured payment token...", candidate.display_identity)
                 try:
                     tr = await timed(
                         _call_agent(
@@ -187,13 +206,13 @@ async def dispatch_with_failover(
                 except Exception as e2:  # noqa: BLE001
                     last_exc = e2
                     continue
-            log.warning("[Error] %s webhook failed: %s", candidate.name, e)
+            log.warning("[Error] %s webhook failed: %s", candidate.display_identity, e)
             log.warning("[Failover] Discovering replacement...")
             continue
         except (httpx.TransportError, asyncio.TimeoutError, Exception) as e:  # noqa: BLE001
             store.update_observation(candidate.agent_id, latency_s=3.0, success=False)
             last_exc = e
-            log.warning("[Error] %s timeout or transport failure: %s", candidate.name, e)
+            log.warning("[Error] %s timeout or transport failure: %s", candidate.display_identity, e)
             log.warning("[Failover] Discovering replacement...")
             continue
 

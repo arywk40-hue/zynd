@@ -30,11 +30,18 @@ class RegisterAgentV1Request(BaseModel):
     public_key: str
     signature: str
     capability_summary: dict[str, Any] | None = None
+    developer_id: str | None = None
+    developer_handle: str | None = None
+    developer_proof: dict[str, Any] | None = None
+    entity_name: str | None = None
+    version: str | None = None
+    fqan: str | None = None
 
 
 class RegisterAgentV1Response(BaseModel):
     entity_id: str
     agent_id: str
+    fqan: str | None = None
 
 
 class SearchV1Request(BaseModel):
@@ -47,6 +54,7 @@ class SearchV1Request(BaseModel):
     min_trust_score: float | None = None
     status: str | None = None
     developer_handle: str | None = None
+    fqan: str | None = None
     entity_type: str | None = None
     max_results: int = 10
     offset: int = 0
@@ -72,7 +80,11 @@ class _Entry:
     trust_score: float
     protocols: list[str]
     models: list[str]
+    developer_id: str | None
     developer_handle: str | None
+    entity_name: str | None
+    version: str | None
+    fqan: str | None
     last_heartbeat: str
     updated_mono: float
 
@@ -94,6 +106,44 @@ def _entity_id_from_public_key(public_key: str, entity_type: str) -> str:
         return f"agdns:{abs(hash((public_key, entity_type))) % (10**16):016d}"
 
 
+def _normalize_zns_part(value: str) -> str:
+    normalized = "".join(ch.lower() if ch.isalnum() else "-" for ch in value.strip())
+    normalized = "-".join(part for part in normalized.split("-") if part)
+    return normalized or "unnamed"
+
+
+def _build_fqan(developer_handle: str | None, entity_name: str | None) -> str | None:
+    if not developer_handle or not entity_name:
+        return None
+    return (
+        f"{settings.zns_root.rstrip('/')}/"
+        f"{_normalize_zns_part(developer_handle)}/"
+        f"{_normalize_zns_part(entity_name)}"
+    )
+
+
+def _fqan_matches(entry_fqan: str | None, requested_fqan: str) -> bool:
+    if not entry_fqan:
+        return False
+    requested = requested_fqan.strip("/")
+    entry = entry_fqan.strip("/")
+    return entry == requested or entry.endswith(f"/{requested}")
+
+
+def _latest_binding(entries: list[_Entry]) -> _Entry | None:
+    if not entries:
+        return None
+    return sorted(
+        entries,
+        key=lambda entry: (
+            entry.status == "active",
+            entry.version or "",
+            entry.updated_mono,
+        ),
+        reverse=True,
+    )[0]
+
+
 def _entry_to_search_result(entry: _Entry, enrich: bool) -> dict[str, Any]:
     result = {
         "entity_id": entry.entity_id,
@@ -113,12 +163,20 @@ def _entry_to_search_result(entry: _Entry, enrich: bool) -> dict[str, Any]:
         "status": entry.status,
         "protocols": entry.protocols,
         "models": entry.models,
+        "developer_id": entry.developer_id,
         "developer_handle": entry.developer_handle,
+        "entity_name": entry.entity_name,
+        "version": entry.version,
+        "fqan": entry.fqan,
         "last_heartbeat": entry.last_heartbeat,
     }
     if enrich:
         result["card"] = {
             "agent_id": entry.entity_id,
+            "fqan": entry.fqan,
+            "developer_handle": entry.developer_handle,
+            "entity_name": entry.entity_name,
+            "version": entry.version,
             "name": entry.name,
             "description": entry.summary,
             "category": entry.category,
@@ -132,6 +190,14 @@ def _entry_to_search_result(entry: _Entry, enrich: bool) -> dict[str, Any]:
                 "invoke_async": f"{entry.entity_url.rstrip('/')}/webhook",
                 "health": f"{entry.entity_url.rstrip('/')}/health",
                 "agent_card": f"{entry.entity_url.rstrip('/')}/.well-known/agent.json",
+            },
+            "identity": {
+                "agent_id": entry.entity_id,
+                "fqan": entry.fqan,
+                "developer_handle": entry.developer_handle,
+                "entity_name": entry.entity_name,
+                "public_key": entry.public_key,
+                "verified_by": "ZyndAI registry",
             },
         }
     return result
@@ -160,6 +226,9 @@ async def register_v1(req: RegisterAgentV1Request) -> RegisterAgentV1Response:
     skills = list((req.capability_summary or {}).get("skills") or [])
     if not skills:
         skills = list(req.tags)
+    entity_name = _normalize_zns_part(req.entity_name or req.name)
+    developer_handle = _normalize_zns_part(req.developer_handle) if req.developer_handle else None
+    fqan = req.fqan or _build_fqan(developer_handle, entity_name)
 
     _agents[entity_id] = _Entry(
         entity_id=entity_id,
@@ -177,12 +246,19 @@ async def register_v1(req: RegisterAgentV1Request) -> RegisterAgentV1Response:
         trust_score=0.85,
         protocols=["webhook", "webhook-sync", "agent-card"],
         models=[],
-        developer_handle=None,
+        developer_id=req.developer_id,
+        developer_handle=developer_handle,
+        entity_name=entity_name,
+        version=req.version or "0.1.0",
+        fqan=fqan,
         last_heartbeat=_utc_now_iso(),
         updated_mono=time.monotonic(),
     )
     log.info("[Directory] Registered %s (%s)", req.name, entity_id)
-    return RegisterAgentV1Response(entity_id=entity_id, agent_id=entity_id)
+    if fqan:
+        log.info("[ZNS] Registered: %s", fqan)
+        log.info("[ZNS] Resolved: %s -> %s", fqan, entity_id)
+    return RegisterAgentV1Response(entity_id=entity_id, agent_id=entity_id, fqan=fqan)
 
 
 @app.put("/v1/entities/{entity_id}")
@@ -191,14 +267,31 @@ async def update_entity_v1(entity_id: str, updates: dict[str, Any]) -> dict[str,
     if not entry:
         raise HTTPException(status_code=404, detail="agent not found")
 
-    for field_name in ["name", "category", "summary", "tags"]:
+    for field_name in [
+        "name",
+        "category",
+        "summary",
+        "tags",
+        "developer_id",
+        "developer_handle",
+        "entity_name",
+        "version",
+        "fqan",
+    ]:
         if field_name in updates:
-            setattr(entry, field_name, updates[field_name])
+            if field_name in {"developer_handle", "entity_name"} and updates[field_name]:
+                setattr(entry, field_name, _normalize_zns_part(str(updates[field_name])))
+            else:
+                setattr(entry, field_name, updates[field_name])
     if "entity_url" in updates:
         entry.entity_url = str(updates["entity_url"]).rstrip("/")
     if "capability_summary" in updates:
         entry.capability_summary = dict(updates["capability_summary"] or {})
+    if not entry.fqan:
+        entry.fqan = _build_fqan(entry.developer_handle, entry.entity_name)
     entry.updated_mono = time.monotonic()
+    if entry.fqan:
+        log.info("[ZNS] Rebound: %s -> %s", entry.fqan, entry.entity_id)
     return {"ok": True}
 
 
@@ -230,6 +323,9 @@ async def search_v1(req: SearchV1Request) -> dict[str, Any]:
         if req.developer_handle and entry.developer_handle != req.developer_handle:
             continue
 
+        if req.fqan and not _fqan_matches(entry.fqan, req.fqan):
+            continue
+
         if requested_tags and not requested_tags.intersection(set(entry.tags)):
             continue
 
@@ -246,6 +342,9 @@ async def search_v1(req: SearchV1Request) -> dict[str, Any]:
         haystack = " ".join([
             entry.name,
             entry.summary,
+            entry.fqan or "",
+            entry.entity_name or "",
+            entry.developer_handle or "",
             " ".join(entry.tags),
             " ".join(list(entry_skills)),
         ]).lower()
@@ -263,6 +362,34 @@ async def search_v1(req: SearchV1Request) -> dict[str, Any]:
         "has_more": False,
         "search_stats": {"federated": req.federated},
     }
+
+
+@app.get("/v1/resolve")
+async def resolve_v1(
+    fqan: str | None = None,
+    developer_handle: str | None = None,
+    entity_name: str | None = None,
+) -> dict[str, Any]:
+    matches = []
+    for entry in _agents.values():
+        if fqan and not _fqan_matches(entry.fqan, fqan):
+            continue
+        if developer_handle and entry.developer_handle != _normalize_zns_part(developer_handle):
+            continue
+        if entity_name and entry.entity_name != _normalize_zns_part(entity_name):
+            continue
+        matches.append(entry)
+
+    selected = _latest_binding(matches)
+    if not selected:
+        raise HTTPException(status_code=404, detail="ZNS name not found")
+    log.info("[ZNS] Resolved: %s -> %s", selected.fqan, selected.entity_id)
+    return _entry_to_search_result(selected, enrich=True)
+
+
+@app.get("/v1/resolve/{developer_handle}/{entity_name}")
+async def resolve_handle_v1(developer_handle: str, entity_name: str) -> dict[str, Any]:
+    return await resolve_v1(developer_handle=developer_handle, entity_name=entity_name)
 
 
 @app.get("/agents/{agent_id}")
@@ -300,7 +427,7 @@ async def heartbeat_ws(websocket: WebSocket, entity_id: str) -> None:
     entry.status = "active"
     entry.last_heartbeat = _utc_now_iso()
     entry.updated_mono = time.monotonic()
-    log.info("[Heartbeat] %s connected to registry", entry.name)
+    log.info("[Heartbeat] %s connected to registry", entry.fqan or entry.name)
 
     try:
         while True:
@@ -308,10 +435,10 @@ async def heartbeat_ws(websocket: WebSocket, entity_id: str) -> None:
             entry.status = "active"
             entry.last_heartbeat = _utc_now_iso()
             entry.updated_mono = time.monotonic()
-            log.info("[Heartbeat] %s active", entry.name)
+            log.info("[Heartbeat] %s active", entry.fqan or entry.name)
     except WebSocketDisconnect:
         entry.status = "inactive"
         entry.updated_mono = time.monotonic()
-        log.warning("[Heartbeat] %s reconnecting...", entry.name)
-        log.warning("[CRASH] %s heartbeat disconnected", entry.name)
-        log.warning("[Recovery] %s removed from active registry pool", entry.name)
+        log.warning("[Heartbeat] %s reconnecting...", entry.fqan or entry.name)
+        log.warning("[CRASH] %s heartbeat disconnected", entry.fqan or entry.name)
+        log.warning("[Recovery] %s removed from active registry pool", entry.fqan or entry.name)

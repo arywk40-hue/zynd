@@ -26,6 +26,47 @@ from shared.utils import get_logger
 log = get_logger("ZyndRuntime")
 
 
+def _normalize_zns_part(value: str) -> str:
+    normalized = "".join(ch.lower() if ch.isalnum() else "-" for ch in value.strip())
+    normalized = "-".join(part for part in normalized.split("-") if part)
+    return normalized or "unnamed"
+
+
+def build_zns_fqan(root: str, developer_handle: str, entity_name: str) -> str:
+    return (
+        f"{root.rstrip('/')}/"
+        f"{_normalize_zns_part(developer_handle)}/"
+        f"{_normalize_zns_part(entity_name)}"
+    )
+
+
+def parse_zns_fqan(fqan: str | None) -> tuple[str | None, str | None]:
+    if not fqan:
+        return None, None
+    parts = [part for part in fqan.strip("/").split("/") if part]
+    if len(parts) < 2:
+        return None, None
+    return parts[-2], parts[-1]
+
+
+def zns_identity_from_config(
+    *,
+    settings: Settings,
+    config: dict[str, Any],
+    default_name: str,
+) -> dict[str, str]:
+    developer_handle = _normalize_zns_part(str(config.get("developer_handle") or settings.zns_developer_handle))
+    entity_name = _normalize_zns_part(str(config.get("entity_name") or config.get("name") or default_name))
+    fqan = str(config.get("fqan") or build_zns_fqan(settings.zns_root, developer_handle, entity_name))
+    version = str(config.get("version") or "0.1.0")
+    return {
+        "developer_handle": developer_handle,
+        "entity_name": entity_name,
+        "fqan": fqan,
+        "version": version,
+    }
+
+
 def ensure_sdk_keypair(path: str) -> str:
     key_path = Path(path)
     if not key_path.exists():
@@ -69,10 +110,12 @@ def build_sdk_agent(
     name = config.get("name", default_name)
     keypair_path = os.environ.get("ZYND_AGENT_KEYPAIR_PATH") or ensure_sdk_keypair(f".keys/{name}.json")
     registry_url = str(settings.zynd_registry_url or settings.directory_url).rstrip("/")
+    zns_identity = zns_identity_from_config(settings=settings, config=config, default_name=default_name)
 
     agent_config = AgentConfig(
         name=name,
         description=config.get("description", default_description),
+        version=zns_identity["version"],
         category=config.get("category", "startup-intelligence"),
         tags=config.get("tags", []),
         registry_url=registry_url,
@@ -82,6 +125,7 @@ def build_sdk_agent(
         config_dir=config_dir,
         card_output=f"{config_dir}/agent-card.json",
         skills=_skills_from_config(config),
+        fqan=zns_identity["fqan"],
         price=price,
     )
     return ZyndAIAgent(agent_config)
@@ -90,6 +134,12 @@ def build_sdk_agent(
 def start_sdk_runtime(agent: ZyndAIAgent) -> None:
     runner = getattr(agent, "run", None) or getattr(agent, "start")
     runner()
+    bind_zns_identity(agent)
+    log_sdk_wallet_status(
+        agent,
+        component=agent.agent_config.name,
+        premium_capable=_env_bool("PREMIUM_REQUIRED", False) or _env_bool("X402_ENABLED", False),
+    )
 
 
 def stop_sdk_runtime(agent: ZyndAIAgent) -> None:
@@ -102,6 +152,51 @@ def sdk_agent_id(agent: ZyndAIAgent | None) -> str | None:
     if agent is None:
         return None
     return str(getattr(agent, "agent_id", None) or getattr(agent, "entity_id", None))
+
+
+def sdk_zns_identity(agent: ZyndAIAgent | None) -> dict[str, str | None]:
+    if agent is None:
+        return {"fqan": None, "developer_handle": None, "entity_name": None, "version": None}
+    fqan = getattr(agent.agent_config, "fqan", None)
+    developer_handle, entity_name = parse_zns_fqan(fqan)
+    return {
+        "fqan": fqan,
+        "developer_handle": developer_handle,
+        "entity_name": entity_name,
+        "version": getattr(agent.agent_config, "version", None),
+    }
+
+
+def bind_zns_identity(agent: ZyndAIAgent | None) -> None:
+    if agent is None:
+        return
+    identity = sdk_zns_identity(agent)
+    if not identity["fqan"]:
+        return
+    entity_id = sdk_agent_id(agent)
+    if not entity_id:
+        return
+    updates = {
+        "fqan": identity["fqan"],
+        "developer_handle": identity["developer_handle"],
+        "entity_name": identity["entity_name"],
+        "version": identity["version"],
+    }
+    try:
+        ok = dns_registry.update_entity(
+            registry_url=agent.agent_config.registry_url,
+            entity_id=entity_id,
+            keypair=agent.keypair,
+            updates=updates,
+        )
+    except Exception as e:  # noqa: BLE001
+        log.warning("[ZNS] Binding failed for %s: %s", identity["fqan"], e)
+        return
+    if ok:
+        log.info("[ZNS] Registered: %s", identity["fqan"])
+        log.info("[ZNS] Resolved: %s -> %s", identity["fqan"], entity_id)
+    else:
+        log.warning("[ZNS] Registry did not accept binding for %s", identity["fqan"])
 
 
 def heartbeat_connected(agent: ZyndAIAgent | None) -> bool:
@@ -121,6 +216,79 @@ def heartbeat_connected(agent: ZyndAIAgent | None) -> bool:
     )
 
 
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.lower() in {"1", "true", "yes", "on"}
+
+
+def _env_float(name: str, default: float | None = None) -> float | None:
+    raw = os.getenv(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
+def sdk_wallet_address(agent: ZyndAIAgent | None) -> str | None:
+    if agent is None:
+        return None
+    pay_to_address = getattr(agent, "pay_to_address", None)
+    if pay_to_address:
+        return str(pay_to_address)
+    processor = getattr(agent, "x402_processor", None)
+    account = getattr(processor, "account", None)
+    address = getattr(account, "address", None)
+    return str(address) if address else None
+
+
+def sdk_payment_status(
+    agent: ZyndAIAgent | None,
+    *,
+    settings: Settings | None = None,
+    premium_required: bool | None = None,
+    premium_cost_usd: float | None = None,
+) -> dict[str, Any]:
+    cfg = settings or Settings()
+    wallet_address = sdk_wallet_address(agent)
+    premium_required = _env_bool("PREMIUM_REQUIRED", False) if premium_required is None else premium_required
+    premium_cost_usd = _env_float("PREMIUM_COST_USD", None) if premium_cost_usd is None else premium_cost_usd
+    return {
+        "wallet_ready": bool(wallet_address),
+        "wallet_address": wallet_address,
+        "x402_enabled": bool(cfg.x402_enabled),
+        "x402_network": cfg.x402_network,
+        "x402_network_name": cfg.x402_network_name,
+        "x402_asset": "USDC",
+        "x402_asset_address": cfg.x402_usdc_asset,
+        "x402_facilitator_url": cfg.x402_facilitator_url if cfg.x402_enabled else None,
+        "premium_required": bool(premium_required),
+        "premium_cost_usd": premium_cost_usd if premium_required else None,
+    }
+
+
+def log_sdk_wallet_status(
+    agent: ZyndAIAgent | None,
+    *,
+    component: str,
+    settings: Settings | None = None,
+    premium_capable: bool = False,
+) -> None:
+    status = sdk_payment_status(agent, settings=settings)
+    if not status["wallet_ready"]:
+        log.warning("[Wallet] %s has no SDK-derived EVM wallet yet", component)
+        return
+
+    log.info("[Wallet] Derived %s wallet: %s", status["x402_network_name"], status["wallet_address"])
+    if status["x402_enabled"] or premium_capable:
+        log.info("[Wallet] Ready for x402 micropayments")
+    else:
+        log.info("[Wallet] SDK payment identity ready")
+
+
 def sdk_agent_card(agent: ZyndAIAgent | None) -> dict[str, Any]:
     if agent is None:
         raise HTTPException(status_code=503, detail="agent runtime is not ready")
@@ -128,11 +296,17 @@ def sdk_agent_card(agent: ZyndAIAgent | None) -> dict[str, Any]:
     base_url = str(agent.agent_config.entity_url or "").rstrip("/")
     skills = [skill.id for skill in (agent.agent_config.skills or [])]
     pricing = _pricing_from_agent(agent)
+    identity = sdk_zns_identity(agent)
+    payment_status = sdk_payment_status(agent)
 
     card: dict[str, Any] = {
         "agent_id": sdk_agent_id(agent),
         "public_key": agent.keypair.public_key_b64,
         "name": agent.agent_config.name,
+        "fqan": identity["fqan"],
+        "developer_handle": identity["developer_handle"],
+        "entity_name": identity["entity_name"],
+        "version": identity["version"],
         "description": agent.agent_config.description,
         "category": agent.agent_config.category,
         "tags": agent.agent_config.tags or [],
@@ -147,6 +321,7 @@ def sdk_agent_card(agent: ZyndAIAgent | None) -> dict[str, Any]:
         },
         "status": "active" if heartbeat_connected(agent) else "inactive",
         "updated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        "payment": payment_status,
     }
     if pricing:
         card["pricing"] = pricing
@@ -180,8 +355,12 @@ def sdk_a2a_card(agent: ZyndAIAgent | None) -> dict[str, Any]:
     card = agent._build_card()  # noqa: SLF001 - SDK owns the A2A runtime card shape.
     base_url = str(agent.agent_config.entity_url or "").rstrip("/")
     skills = [skill.id for skill in (agent.agent_config.skills or [])]
+    identity = sdk_zns_identity(agent)
     card["capability_summary"] = {"skills": skills}
     card["tags"] = agent.agent_config.tags or []
+    card["fqan"] = identity["fqan"]
+    card["developer_handle"] = identity["developer_handle"]
+    card["entity_name"] = identity["entity_name"]
     card["endpoints"] = {
         "webhook": f"{base_url}/webhook",
         "webhook_sync": f"{base_url}/webhook/sync",
@@ -190,6 +369,9 @@ def sdk_a2a_card(agent: ZyndAIAgent | None) -> dict[str, Any]:
     }
     card["identity"] = {
         "agent_id": sdk_agent_id(agent),
+        "fqan": identity["fqan"],
+        "developer_handle": identity["developer_handle"],
+        "entity_name": identity["entity_name"],
         "public_key": agent.keypair.public_key_string,
         "verified_by": "ZyndAI SDK",
     }
@@ -272,6 +454,7 @@ def search_agents(
     min_trust_score: float | None = None,
     status: str = "active",
     developer_handle: str | None = None,
+    fqan: str | None = None,
     entity_type: str = "agent",
     max_results: int = 10,
     federated: bool = True,
@@ -291,6 +474,7 @@ def search_agents(
         min_trust_score=min_trust_score,
         status=status,
         developer_handle=developer_handle,
+        fqan=fqan,
         entity_type=entity_type,
         max_results=max_results,
         federated=federated,
@@ -309,6 +493,7 @@ def search_agents(
             continue
 
         card = item.get("card") or None
+        identity = (card or {}).get("identity") or {}
         score = float(item.get("score", 0.0) or 0.0)
         trust_score = float(item.get("trust_score", item.get("trust", score)) or 0.0)
         last_heartbeat = item.get("last_heartbeat")
@@ -318,6 +503,9 @@ def search_agents(
                 agent_id=str(item.get("agent_id") or item.get("entity_id") or "unknown"),
                 name=str(item.get("name", "unknown-agent")),
                 agent_url=agent_url,
+                fqan=item.get("fqan") or (card or {}).get("fqan") or identity.get("fqan"),
+                entity_name=item.get("entity_name") or (card or {}).get("entity_name") or identity.get("entity_name"),
+                version=item.get("version") or (card or {}).get("version"),
                 search_score=score,
                 trust_score=trust_score,
                 status=item_status,
@@ -329,12 +517,32 @@ def search_agents(
                 capabilities=_extract_capabilities(item),
                 protocols=_as_string_list(item.get("protocols") or (card or {}).get("protocols")),
                 models=_as_string_list(item.get("models") or (card or {}).get("supported_models")),
-                developer_handle=item.get("developer_handle"),
+                developer_handle=item.get("developer_handle") or (card or {}).get("developer_handle") or identity.get("developer_handle"),
+                home_registry=item.get("home_registry"),
                 card=card,
             )
         )
 
     return candidates
+
+
+def resolve_agent(
+    *,
+    registry_url: str,
+    fqan: str,
+    status: str = "active",
+    enrich: bool = True,
+) -> CandidateAgent | None:
+    candidates = search_agents(
+        registry_url=registry_url,
+        fqan=fqan,
+        status=status,
+        entity_type="agent",
+        max_results=1,
+        federated=True,
+        enrich=enrich,
+    )
+    return candidates[0] if candidates else None
 
 
 @dataclass
@@ -416,9 +624,14 @@ async def registry_last_heartbeat(agent: ZyndAIAgent | None) -> str | None:
 
 
 async def sdk_health(agent: ZyndAIAgent | None, state: WebhookRuntimeState) -> dict[str, Any]:
-    return {
+    identity = sdk_zns_identity(agent)
+    health = {
         "status": "healthy" if agent else "starting",
         "agent_id": sdk_agent_id(agent),
+        "fqan": identity["fqan"],
+        "developer_handle": identity["developer_handle"],
+        "entity_name": identity["entity_name"],
+        "version": identity["version"],
         "identity_verified": bool(agent.keypair.public_key_string) if agent else False,
         "uptime_seconds": round(time.monotonic() - state.started_at, 3),
         "webhook_requests_total": state.webhook_requests_total,
@@ -430,6 +643,8 @@ async def sdk_health(agent: ZyndAIAgent | None, state: WebhookRuntimeState) -> d
         "last_heartbeat": await registry_last_heartbeat(agent),
         "heartbeat_connected": heartbeat_connected(agent),
     }
+    health.update(sdk_payment_status(agent))
+    return health
 
 
 def build_startup_task_processor(

@@ -1,5 +1,8 @@
 {
   "name": "trend-agent",
+  "developer_handle": "venture-swarm",
+  "entity_name": "trend-agent",
+  "version": "0.1.0",
   "description": "Identifies relevant macro and micro trends for a startup idea.",
   "category": "startup-intelligence",
   "tags": [

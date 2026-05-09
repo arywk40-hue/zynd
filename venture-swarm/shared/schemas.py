@@ -69,6 +69,9 @@ class CandidateAgent(BaseModel):
     agent_id: str
     name: str
     agent_url: HttpUrl
+    fqan: str | None = None
+    entity_name: str | None = None
+    version: str | None = None
     search_score: float = 0.0
     trust_score: float = 0.0
     rank_score: float = 0.0
@@ -82,7 +85,16 @@ class CandidateAgent(BaseModel):
     protocols: list[str] = Field(default_factory=list)
     models: list[str] = Field(default_factory=list)
     developer_handle: str | None = None
+    home_registry: str | None = None
     card: dict[str, Any] | None = None
+
+    @property
+    def display_identity(self) -> str:
+        if self.fqan:
+            return self.fqan
+        if self.developer_handle:
+            return f"{self.developer_handle}/{self.entity_name or self.name}"
+        return self.name
 
 
 class PlannedTasks(BaseModel):

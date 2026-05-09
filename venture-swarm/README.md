@@ -155,6 +155,68 @@ The SDK identity/keypair signs the card. Clients can fetch the card before invok
 - Discovery requests active agents only and ignores offline registry entries.
 - Shutdown calls the SDK runtime stop path so heartbeat sessions close cleanly.
 
+## Base Sepolia And x402 Payments
+
+VentureSwarm includes optional x402 readiness for premium intelligence agents. This is a showcase feature, so it is off by default and does not block the core orchestration demo.
+
+The ZyndAI SDK derives each agent's EVM payment wallet from its Ed25519 identity. VentureSwarm does not generate blockchain wallets manually, store separate private keys, deploy smart contracts, or implement signing infrastructure.
+
+Default payment network:
+
+- Network: Base Sepolia
+- Chain ID: `eip155:84532`
+- Payment token: Base Sepolia USDC
+- USDC asset: `0x036CbD53842c5426634e7929541eC2318f3dCF7e`
+- Gas token: Base Sepolia ETH
+
+Startup logs show the wallet to fund:
+
+```text
+[Wallet] Derived Base Sepolia wallet: 0x...
+[Wallet] Ready for x402 micropayments
+```
+
+Health and agent-card responses include:
+
+- `wallet_ready`
+- `wallet_address`
+- `x402_enabled`
+- `x402_network`
+- `x402_asset_address`
+- `premium_required`
+- `premium_cost_usd`
+
+### Funding Testnet Wallets
+
+1. Start the stack and copy wallet addresses from logs or `GET /health`.
+2. Fund the orchestrator wallet with Base Sepolia ETH for gas.
+3. Fund the orchestrator wallet with Base Sepolia USDC for payments.
+4. Use the premium agent wallet as the receiving `payTo` address.
+5. Get Base Sepolia ETH for gas from `https://testing.zynd.ai/faucet`.
+6. Get Base Sepolia USDC from `https://faucet.circle.com`.
+7. Send the assets to the SDK-derived wallet addresses.
+8. Set `X402_ENABLED=true` in `.env`.
+9. Restart the stack.
+
+When enabled, the premium funding agent protects `/webhook` and `/webhook/sync` with the official x402 FastAPI middleware. The orchestrator uses the SDK `x402_processor` for outbound calls, so the expected flow is:
+
+1. Orchestrator calls the premium funding agent.
+2. Funding agent returns an x402-compatible `402 Payment Required`.
+3. The SDK x402 client signs and pays with Base Sepolia USDC.
+4. The request retries automatically.
+5. The premium response is returned and logged.
+
+Example logs:
+
+```text
+[x402] premium-funding-agent requires payment
+[x402] Processing Base Sepolia USDC payment...
+[x402] Payment successful
+[Dispatch] premium-funding-agent executing analysis
+```
+
+For local demos without funded wallets, keep `X402_ENABLED=false` and optionally use `PREMIUM_PAYMENT_TOKEN` as the legacy fallback 402 retry path.
+
 ## Monitoring Logs
 
 The runtime logs show:
@@ -241,6 +303,16 @@ Supported providers are `openai`, `groq`, `gemini`, `anthropic`, `mistral`, and 
 
 For OpenAI-compatible gateways, set `OPENAI_BASE_URL` and `OPENAI_MODEL` with `LLM_PROVIDER=openai`.
 
+Optional Base Sepolia x402 setup:
+
+```bash
+X402_ENABLED=true
+X402_NETWORK=eip155:84532
+X402_NETWORK_NAME="Base Sepolia"
+X402_USDC_ASSET=0x036CbD53842c5426634e7929541eC2318f3dCF7e
+X402_FACILITATOR_URL=https://x402.org/facilitator
+```
+
 Run services:
 
 ```bash
@@ -285,6 +357,8 @@ Treat these as later upgrades after discovery, heartbeat, webhooks, failover, an
 ## Troubleshooting
 
 - **No agents discovered**: verify all five agents are running and registered (`/v1/search` on directory)
-- **402 errors**: set `PREMIUM_PAYMENT_TOKEN` in orchestrator environment
+- **402 errors with `X402_ENABLED=false`**: set `PREMIUM_PAYMENT_TOKEN` in orchestrator environment
+- **402 errors with `X402_ENABLED=true`**: fund the orchestrator wallet with Base Sepolia ETH for gas and Base Sepolia USDC for payments, then check the x402 facilitator URL
+- **Wallet not visible**: check `/health` for `wallet_ready` and `wallet_address`; the SDK derives this from the agent identity during startup
 - **Registry mismatch**: ensure all services point to same `DIRECTORY_URL` / `ZYND_REGISTRY_URL`
 - **Port conflicts**: check service ports `8000, 8001, 8101-8105`

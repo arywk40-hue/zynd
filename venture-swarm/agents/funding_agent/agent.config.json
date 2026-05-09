@@ -1,5 +1,8 @@
 {
   "name": "funding-agent",
+  "developer_handle": "venture-swarm",
+  "entity_name": "funding-agent",
+  "version": "0.1.0",
   "description": "Extracts investment signals and likely funding dynamics for startup ideas.",
   "category": "startup-intelligence",
   "tags": [
