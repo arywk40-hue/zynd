@@ -37,6 +37,12 @@ _DISCOVERY_PROFILES = {
         "skills": ["competitor-analysis", "saturation-analysis"],
         "entity_name": "competitor-agent",
     },
+    "startup-comparison": {
+        "query": "startup comparison funding profit loss benchmark",
+        "tags": ["startup", "comparison", "benchmarks", "funding-trajectory", "startup-comparison"],
+        "skills": ["startup-comparison", "comparable-startups", "funding-trajectory-analysis"],
+        "entity_name": "startup-compare-agent",
+    },
     "market-gap-analysis": {
         "query": "market gap analysis",
         "tags": ["startup", "market", "market-gap-analysis"],

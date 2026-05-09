@@ -11,7 +11,7 @@ Orchestrator Agent (planner → discovery → ranking → async dispatch → agg
   ↓                             ↘ search_agents(..., federated=True, enrich=True)
 Zynd-compatible Directory (/v1/agents, /v1/search)
   ↑                                      ↓
-Agents (trend, funding, benchmarking, competitor, market-gap, financial-signals, risk)
+Agents (trend, funding, competitor, startup-compare, market-gap, risk)
   └─ /webhook/sync + /.well-known/agent.json (SDK runtime)
 ```
 
@@ -64,6 +64,10 @@ venture-swarm/
 │   │   ├── prompts.py
 │   │   └── agent.config.json
 │   ├── competitor_agent/
+│   │   ├── agent.py
+│   │   ├── prompts.py
+│   │   └── agent.config.json
+│   ├── startup_compare_agent/
 │   │   ├── agent.py
 │   │   ├── prompts.py
 │   │   └── agent.config.json
@@ -279,7 +283,7 @@ The orchestrator `/health` response includes:
 - `funding_signals`
 - `funding_trajectory`
 - `competitors`
-- `comparables`
+- `startup_comparisons`
 - `market_gaps`
 - `financial_signals`
 - `risks`
@@ -342,6 +346,7 @@ SERVICE_URL=http://localhost:8101 uvicorn agents.trend_agent.agent:app --port 81
 SERVICE_URL=http://localhost:8102 PREMIUM_REQUIRED=true uvicorn agents.funding_agent.agent:app --port 8102
 SERVICE_URL=http://localhost:8106 uvicorn agents.benchmarking_agent.agent:app --port 8106
 SERVICE_URL=http://localhost:8103 uvicorn agents.competitor_agent.agent:app --port 8103
+SERVICE_URL=http://localhost:8106 uvicorn agents.startup_compare_agent.agent:app --port 8106
 SERVICE_URL=http://localhost:8104 uvicorn agents.market_gap_agent.agent:app --port 8104
 SERVICE_URL=http://localhost:8107 uvicorn agents.financial_signals_agent.agent:app --port 8107
 SERVICE_URL=http://localhost:8105 uvicorn agents.risk_agent.agent:app --port 8105
@@ -379,9 +384,9 @@ Treat these as later upgrades after discovery, heartbeat, webhooks, failover, an
 
 ## Troubleshooting
 
-- **No agents discovered**: verify all five agents are running and registered (`/v1/search` on directory)
+- **No agents discovered**: verify all six agents are running and registered (`/v1/search` on directory)
 - **402 errors with `X402_ENABLED=false`**: set `PREMIUM_PAYMENT_TOKEN` in orchestrator environment
 - **402 errors with `X402_ENABLED=true`**: fund the orchestrator wallet with Base Sepolia ETH for gas and Base Sepolia USDC for payments, then check the x402 facilitator URL
 - **Wallet not visible**: check `/health` for `wallet_ready` and `wallet_address`; the SDK derives this from the agent identity during startup
 - **Registry mismatch**: ensure all services point to same `DIRECTORY_URL` / `ZYND_REGISTRY_URL`
-- **Port conflicts**: check service ports `8000, 8001, 8101-8105`
+- **Port conflicts**: check service ports `8000, 8001, 8101-8106`

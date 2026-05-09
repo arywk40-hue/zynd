@@ -567,6 +567,14 @@ async def index() -> str:
         `Execution difficulty: ${report.execution_difficulty || "Unknown"}`,
         `Highest visible risk: ${firstText(report.risks, ["severity"], "Unknown")}`
       ];
+      const comparisons = uniqueValues((report.startup_comparisons || []).map((item) => {
+        const name = item.similar_startup || item.company || item.name || "Comparable startup";
+        const funding = item.funding_signal ? `funding: ${item.funding_signal}` : "";
+        const profit = item.profit_signal ? `profit: ${item.profit_signal}` : "";
+        const loss = item.loss_signal ? `loss: ${item.loss_signal}` : "";
+        const takeaway = item.comparison_takeaway || item.traction_signal || "";
+        return [name, funding, profit, loss, takeaway].filter(Boolean).join(" | ");
+      }));
 
       return {
         idea: idea.name || "No opportunity selected yet",
@@ -578,7 +586,7 @@ async def index() -> str:
             id: "profit",
             title: "Profit",
             accent: "#39c78f",
-            top: 15,
+            top: 12,
             mobileTop: 185,
             summary: `${report.monetization_potential || "Unknown"} monetization potential`,
             items: profitSignals,
@@ -587,7 +595,7 @@ async def index() -> str:
             id: "people",
             title: "People",
             accent: "#70a6ff",
-            top: 30,
+            top: 25,
             mobileTop: 330,
             summary: "Primary users and buyers",
             items: people,
@@ -596,17 +604,26 @@ async def index() -> str:
             id: "target",
             title: "Target",
             accent: "#b184ff",
-            top: 45,
+            top: 38,
             mobileTop: 475,
             summary: "Market wedge and timing",
             items: targets,
           },
           {
+            id: "compare",
+            title: "Compare",
+            accent: "#63d7e6",
+            top: 51,
+            mobileTop: 620,
+            summary: "Similar startup funding, profit, and loss patterns",
+            items: comparisons.length ? comparisons : ["No comparable startup benchmark yet"],
+          },
+          {
             id: "disadvantages",
             title: "Disadvantages",
             accent: "#ff6f72",
-            top: 60,
-            mobileTop: 620,
+            top: 64,
+            mobileTop: 765,
             summary: "Risks that weaken the opportunity",
             items: disadvantages,
           },
@@ -614,8 +631,8 @@ async def index() -> str:
             id: "loss",
             title: "Loss",
             accent: "#ffb45f",
-            top: 75,
-            mobileTop: 765,
+            top: 77,
+            mobileTop: 910,
             summary: "Downside signals",
             items: losses,
           },
@@ -761,6 +778,11 @@ async def index() -> str:
           key: "add-moat",
           label: "Add moat",
           instruction: "Add defensibility relative to the latest map. Include data advantage, distribution, partnerships, workflow lock-in, and switching costs.",
+        },
+        {
+          key: "compare-startups",
+          label: "Compare startups",
+          instruction: "Compare the latest idea against similar startups or analog companies. Focus on funding trajectory, traction, profit upside, loss/downside, and what to copy or avoid.",
         },
         {
           key: "find-mvp",

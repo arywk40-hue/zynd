@@ -120,6 +120,7 @@ def aggregate(
     funding: AgentTaskResponse,
     benchmarking: AgentTaskResponse,
     competitors: AgentTaskResponse,
+    startup_comparisons: AgentTaskResponse,
     market_gaps: AgentTaskResponse,
     financial_signals: AgentTaskResponse,
     risks: AgentTaskResponse,
@@ -130,15 +131,16 @@ def aggregate(
     saturation = _pick_market_saturation(competitors.data)
     difficulty = _pick_execution_difficulty(risks.data)
 
-    trend_strength = _average_confidence(trend.data, default=0.7)
-    funding_strength = _average_confidence(funding.data, default=0.7)
-    gap_strength = _average_confidence(market_gaps.data, default=0.7)
-    financial_strength = _average_confidence(financial_signals.data, default=0.6)
+    trend_strength = _average_confidence(trend.data)
+    funding_strength = _average_confidence(funding.data)
+    gap_strength = _average_confidence(market_gaps.data)
+    comparison_strength = _average_confidence(startup_comparisons.data)
 
     score_raw = (
-        (trend_strength * 10.0 * 0.30)
-        + (funding_strength * 10.0 * 0.25)
-        + (gap_strength * 10.0 * 0.25)
+        (trend_strength * 10.0 * 0.25)
+        + (funding_strength * 10.0 * 0.20)
+        + (gap_strength * 10.0 * 0.20)
+        + (comparison_strength * 10.0 * 0.15)
         + (_SATURATION_SCORE[saturation] * 0.10)
         + (_DIFFICULTY_SCORE[difficulty] * 0.10)
     )
@@ -205,7 +207,7 @@ def aggregate(
         funding_signals=funding.data,
         funding_trajectory=_funding_trajectory(funding.data),
         competitors=competitors.data,
-        comparables=benchmarking.data,
+        startup_comparisons=startup_comparisons.data,
         market_gaps=market_gaps.data,
         financial_signals=financial_signals.data,
         risks=risks.data,

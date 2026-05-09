@@ -195,7 +195,7 @@ class VentureSwarmOrchestrator:
         if payment_token:
             log.info("[Orchestrator] Premium payment token configured.")
         if self._settings.x402_enabled:
-            log.info("\\[x402] SDK-native Base Sepolia payment routing enabled.")
+            log.info("[x402] SDK-native Base Sepolia payment routing enabled.")
 
         async def _run_task(t):
             candidates = by_capability.get(t.capability, [])
@@ -257,6 +257,7 @@ class VentureSwarmOrchestrator:
             funding=responses["funding-analysis"],
             benchmarking=responses["benchmarking-analysis"],
             competitors=responses["competitor-analysis"],
+            startup_comparisons=responses["startup-comparison"],
             market_gaps=responses["market-gap-analysis"],
             financial_signals=responses["financial-signal-analysis"],
             risks=responses["risk-analysis"],

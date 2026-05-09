@@ -162,7 +162,7 @@ class StartupReport(BaseModel):
     funding_signals: list[dict[str, Any]] = Field(default_factory=list)
     funding_trajectory: FundingTrajectory | None = None
     competitors: list[dict[str, Any]] = Field(default_factory=list)
-    comparables: list[dict[str, Any]] = Field(default_factory=list)
+    startup_comparisons: list[dict[str, Any]] = Field(default_factory=list)
     market_gaps: list[dict[str, Any]] = Field(default_factory=list)
     financial_signals: list[dict[str, Any]] = Field(default_factory=list)
     risks: list[dict[str, Any]] = Field(default_factory=list)

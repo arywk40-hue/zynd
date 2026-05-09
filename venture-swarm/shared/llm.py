@@ -26,6 +26,16 @@ _REQUIRED_FIELDS: dict[str, list[str]] = {
         "confidence",
     ],
     "competitor-analysis": ["competitor_type", "examples", "differentiation_angle", "saturation"],
+    "startup-comparison": [
+        "similar_startup",
+        "category",
+        "funding_signal",
+        "traction_signal",
+        "profit_signal",
+        "loss_signal",
+        "comparison_takeaway",
+        "confidence",
+    ],
     "market-gap-analysis": ["gap", "target_user", "value_prop", "why_now", "confidence"],
     "risk-analysis": ["risk", "category", "severity", "mitigation"],
     "benchmarking-analysis": [
