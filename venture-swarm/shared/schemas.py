@@ -136,6 +136,7 @@ class StartupReport(BaseModel):
     trends: list[dict[str, Any]] = Field(default_factory=list)
     funding_signals: list[dict[str, Any]] = Field(default_factory=list)
     competitors: list[dict[str, Any]] = Field(default_factory=list)
+    startup_comparisons: list[dict[str, Any]] = Field(default_factory=list)
     market_gaps: list[dict[str, Any]] = Field(default_factory=list)
     risks: list[dict[str, Any]] = Field(default_factory=list)
     agent_trace: list[dict[str, Any]] = Field(default_factory=list)

@@ -33,6 +33,15 @@ def plan(query: str) -> PlannedTasks:
         ),
         Subtask(
             id=str(uuid.uuid4()),
+            capability="startup-comparison",
+            instruction=(
+                "Compare similar startups or analog companies. Extract funding trajectory, traction, "
+                "profit upside, loss/downside signals, and what the proposed startup should copy or avoid."
+            ),
+            keywords=["startup-comparison", "comparable-startups", "funding-trajectory-analysis"],
+        ),
+        Subtask(
+            id=str(uuid.uuid4()),
             capability="market-gap-analysis",
             instruction="Find underserved segments and propose the best wedge entry point.",
             keywords=["market-gap-analysis", "underserved-market-detection"],

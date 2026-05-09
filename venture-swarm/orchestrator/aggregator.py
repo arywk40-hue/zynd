@@ -29,12 +29,17 @@ def _pick_execution_difficulty(risks: list[dict]) -> str:
     return "Low"
 
 
+def _average_confidence(items: list[dict], default: float = 0.7) -> float:
+    return sum(float(item.get("confidence", default)) for item in items) / max(1, len(items))
+
+
 def aggregate(
     *,
     query: str,
     trend: AgentTaskResponse,
     funding: AgentTaskResponse,
     competitors: AgentTaskResponse,
+    startup_comparisons: AgentTaskResponse,
     market_gaps: AgentTaskResponse,
     risks: AgentTaskResponse,
     agent_trace: list[dict],
@@ -44,14 +49,16 @@ def aggregate(
     saturation = _pick_market_saturation(competitors.data)
     difficulty = _pick_execution_difficulty(risks.data)
 
-    trend_strength = sum(float(t.get("confidence", 0.7)) for t in trend.data) / max(1, len(trend.data))
-    funding_strength = sum(float(s.get("confidence", 0.7)) for s in funding.data) / max(1, len(funding.data))
-    gap_strength = sum(float(g.get("confidence", 0.7)) for g in market_gaps.data) / max(1, len(market_gaps.data))
+    trend_strength = _average_confidence(trend.data)
+    funding_strength = _average_confidence(funding.data)
+    gap_strength = _average_confidence(market_gaps.data)
+    comparison_strength = _average_confidence(startup_comparisons.data)
 
     score_raw = (
-        (trend_strength * 10.0 * 0.30)
-        + (funding_strength * 10.0 * 0.25)
-        + (gap_strength * 10.0 * 0.25)
+        (trend_strength * 10.0 * 0.25)
+        + (funding_strength * 10.0 * 0.20)
+        + (gap_strength * 10.0 * 0.20)
+        + (comparison_strength * 10.0 * 0.15)
         + (_SATURATION_SCORE[saturation] * 0.10)
         + (_DIFFICULTY_SCORE[difficulty] * 0.10)
     )
@@ -80,6 +87,7 @@ def aggregate(
         trends=trend.data,
         funding_signals=funding.data,
         competitors=competitors.data,
+        startup_comparisons=startup_comparisons.data,
         market_gaps=market_gaps.data,
         risks=risks.data,
         agent_trace=agent_trace,

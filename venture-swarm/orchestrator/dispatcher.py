@@ -108,13 +108,10 @@ async def _call_agent(
     log.info("[Webhook] POST %s (%s)", sync_url, candidate.display_identity)
 
     def _post():
-<<<<<<< HEAD
         if _x402_enabled():
             return sender_agent.x402_processor.post(sync_url, json=msg.to_dict(), headers=headers, timeout=12)
         if payment_token:
             return requests.post(sync_url, json=msg.to_dict(), headers=headers, timeout=12)
-=======
->>>>>>> e1f74881116608741d2d8d55504580b6e37e4454
         try:
             return sender_agent.x402_processor.post(sync_url, json=msg.to_dict(), headers=headers, timeout=12)
         except Exception as e:  # noqa: BLE001

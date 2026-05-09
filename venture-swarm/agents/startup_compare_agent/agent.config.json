@@ -1,0 +1,26 @@
+{
+  "name": "startup-compare-agent",
+  "developer_handle": "venture-swarm",
+  "entity_name": "startup-compare-agent",
+  "version": "0.1.0",
+  "description": "Compares similar startups for funding, traction, profit upside, and loss/downside patterns.",
+  "category": "startup-intelligence",
+  "tags": [
+    "startup",
+    "comparison",
+    "benchmarks",
+    "funding-trajectory",
+    "profit-loss",
+    "startup-comparison"
+  ],
+  "summary": "Comparable startup benchmark specialist",
+  "capabilities": {
+    "skills": [
+      "startup-comparison",
+      "comparable-startups",
+      "funding-trajectory-analysis",
+      "profit-loss-analysis"
+    ]
+  },
+  "webhook_port": 9106
+}
