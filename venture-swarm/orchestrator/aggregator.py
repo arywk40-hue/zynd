@@ -16,6 +16,20 @@ log = get_logger("Aggregation")
 
 _SATURATION_SCORE = {"Low": 8.5, "Medium": 6.0, "High": 3.5}
 _DIFFICULTY_SCORE = {"Low": 8.5, "Medium": 6.0, "High": 3.5}
+_FORECAST_BREAKOUT_MIN = 0.1
+_FORECAST_BREAKOUT_MAX = 0.75
+_FORECAST_STALL_MIN = 0.1
+_FORECAST_STALL_MAX = 0.7
+_FORECAST_STEADY_MIN = 0.1
+_FORECAST_OPPORTUNITY_WEIGHT = 0.6
+_FORECAST_FUNDING_WEIGHT = 0.2
+_FORECAST_STALL_WEIGHT = 0.5
+_FORECAST_STALL_DIFFICULTY_BONUS = 0.2
+_FORECAST_STALL_EASY_BONUS = 0.05
+_DEFAULT_TREND_ASSUMPTION = "Market momentum holds"
+_DEFAULT_GAP_ASSUMPTION = "Focus on a clear underserved segment"
+_DEFAULT_FUNDING_ASSUMPTION = "Investor appetite remains"
+_DEFAULT_RISK_ASSUMPTION = "Execution risk"
 
 
 def _pick_market_saturation(competitors: list[dict]) -> str:
@@ -57,13 +71,25 @@ def _funding_trajectory(funding: list[dict]) -> FundingTrajectory | None:
 
 
 def _forecast_outcomes(opportunity_score: float, funding_strength: float, difficulty: str) -> OutcomeForecast:
-    breakout = max(0.1, min(0.75, (opportunity_score / 10.0) * 0.6 + (funding_strength * 0.2)))
-    stall = max(0.1, min(0.7, (1.0 - funding_strength) * 0.5 + (0.2 if difficulty == "High" else 0.05)))
-    steady = 1.0 - breakout - stall
-    if steady < 0.1:
-        steady = 0.1
+    breakout = (opportunity_score / 10.0) * _FORECAST_OPPORTUNITY_WEIGHT + (funding_strength * _FORECAST_FUNDING_WEIGHT)
+    breakout = max(_FORECAST_BREAKOUT_MIN, min(_FORECAST_BREAKOUT_MAX, breakout))
+    stall = (1.0 - funding_strength) * _FORECAST_STALL_WEIGHT + (
+        _FORECAST_STALL_DIFFICULTY_BONUS if difficulty == "High" else _FORECAST_STALL_EASY_BONUS
+    )
+    stall = max(_FORECAST_STALL_MIN, min(_FORECAST_STALL_MAX, stall))
+    steady = max(_FORECAST_STEADY_MIN, 1.0 - breakout - stall)
+
     total = breakout + steady + stall
+    if total <= 0:
+        return OutcomeForecast(breakout=0.2, steady=0.6, stall=0.2)
+
     breakout, steady, stall = (breakout / total, steady / total, stall / total)
+    if steady < _FORECAST_STEADY_MIN:
+        remainder = 1.0 - _FORECAST_STEADY_MIN
+        scale = remainder / max(breakout + stall, 1e-6)
+        breakout *= scale
+        stall *= scale
+        steady = _FORECAST_STEADY_MIN
     return OutcomeForecast(breakout=round(breakout, 3), steady=round(steady, 3), stall=round(stall, 3))
 
 
@@ -76,13 +102,13 @@ def _scorecard_assumptions(
 ) -> list[str]:
     assumptions = []
     if top_trend:
-        assumptions.append(f"Trend tailwind: {top_trend.get('trend', 'Market momentum holds').strip()}")
+        assumptions.append(f"Trend tailwind: {top_trend.get('trend', _DEFAULT_TREND_ASSUMPTION).strip()}")
     if top_gap:
-        assumptions.append(f"Wedge: {top_gap.get('gap', 'Focus on a clear underserved segment').strip()}")
+        assumptions.append(f"Wedge: {top_gap.get('gap', _DEFAULT_GAP_ASSUMPTION).strip()}")
     if top_funding:
-        assumptions.append(f"Funding signal: {top_funding.get('signal', 'Investor appetite remains').strip()}")
+        assumptions.append(f"Funding signal: {top_funding.get('signal', _DEFAULT_FUNDING_ASSUMPTION).strip()}")
     if top_risk:
-        assumptions.append(f"Primary risk: {top_risk.get('risk', 'Execution risk').strip()}")
+        assumptions.append(f"Primary risk: {top_risk.get('risk', _DEFAULT_RISK_ASSUMPTION).strip()}")
     return [assumption for assumption in assumptions if assumption]
 
 

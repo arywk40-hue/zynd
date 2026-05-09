@@ -152,6 +152,7 @@ def _request_financial_overlay(message: AgentMessage) -> tuple[list[dict], str |
         response = agent.x402_processor.post(sync_url, json=collab_message.to_dict(), timeout=12)
     except Exception as e:  # noqa: BLE001
         if "Invalid payment required response" in str(e):
+            log.info("[Coordination] Falling back to direct HTTP for financial signals")
             response = requests.post(sync_url, json=collab_message.to_dict(), timeout=12)
         else:
             log.warning("[Error] Financial collaboration failed: %s", e)
@@ -259,7 +260,7 @@ def _install_x402_middleware() -> None:
         from x402.http.types import PaymentOption, RouteConfig
         from x402.mechanisms.evm.exact import register_exact_evm_server
     except Exception as e:  # noqa: BLE001
-        log.error("\\[x402] Payment middleware unavailable: %s", e)
+        log.error("[x402] Payment middleware unavailable: %s", e)
         return
 
     facilitator = HTTPFacilitatorClient(FacilitatorConfig(url=settings.x402_facilitator_url))
@@ -293,17 +294,17 @@ def _install_x402_middleware() -> None:
         if not protected or not _premium_required():
             return await call_next(request)
 
-        log.warning("\\[x402] premium-benchmarking-agent requires payment")
-        log.info("\\[x402] Processing %s USDC payment...", settings.x402_network_name)
+        log.warning("[x402] premium-benchmarking-agent requires payment")
+        log.info("[x402] Processing %s USDC payment...", settings.x402_network_name)
         response = await middleware(request, call_next)
         if response.status_code == 402:
-            log.warning("\\[x402] Payment required or settlement failed")
+            log.warning("[x402] Payment required or settlement failed")
         elif getattr(request.state, "payment_payload", None) is not None:
-            log.info("\\[x402] Payment successful")
+            log.info("[x402] Payment successful")
             log.info("[Dispatch] premium-benchmarking-agent executing analysis")
         return response
 
-    log.info("\\[x402] Base Sepolia payment middleware enabled for premium-benchmarking-agent")
+    log.info("[x402] Base Sepolia payment middleware enabled for premium-benchmarking-agent")
 
 
 _install_x402_middleware()

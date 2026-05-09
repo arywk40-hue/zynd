@@ -16,6 +16,7 @@ from shared.utils import get_logger, timed
 
 
 log = get_logger("Dispatch")
+_DEFAULT_SCHEMA_QUALITY = 0.75
 
 
 def _x402_enabled() -> bool:
@@ -31,7 +32,7 @@ def _candidate_requires_payment(candidate: CandidateAgent) -> bool:
 def _schema_quality(capability: str, data: list[dict]) -> float:
     required = required_fields_for_capability(capability)
     if not required:
-        return 0.75
+        return _DEFAULT_SCHEMA_QUALITY
     if not data:
         return 0.0
     scored: list[float] = []
