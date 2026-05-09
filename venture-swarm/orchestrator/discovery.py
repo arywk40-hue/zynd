@@ -25,6 +25,12 @@ _DISCOVERY_PROFILES = {
         "skills": ["funding-analysis", "vc-analysis", "investment-signals"],
         "entity_name": "funding-agent",
     },
+    "benchmarking-analysis": {
+        "query": "startup benchmarking",
+        "tags": ["startup", "benchmarking", "comparables", "benchmarking-analysis"],
+        "skills": ["benchmarking-analysis", "comparable-startups", "comp-set-analysis"],
+        "entity_name": "benchmarking-agent",
+    },
     "competitor-analysis": {
         "query": "competitor analysis",
         "tags": ["startup", "competition", "competitor-analysis"],
@@ -36,6 +42,12 @@ _DISCOVERY_PROFILES = {
         "tags": ["startup", "market", "market-gap-analysis"],
         "skills": ["market-gap-analysis", "underserved-market-detection"],
         "entity_name": "market-gap-agent",
+    },
+    "financial-signal-analysis": {
+        "query": "financial signals",
+        "tags": ["startup", "financial-signals", "unit-economics", "financial-signal-analysis"],
+        "skills": ["financial-signal-analysis", "unit-economics", "burn-runway"],
+        "entity_name": "financial-signals-agent",
     },
     "risk-analysis": {
         "query": "risk analysis",

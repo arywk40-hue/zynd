@@ -1,0 +1,24 @@
+{
+  "name": "financial-signals-agent",
+  "developer_handle": "venture-swarm",
+  "entity_name": "financial-signals-agent",
+  "version": "0.1.0",
+  "description": "Estimates financial health proxies like burn, runway, and margin signals.",
+  "category": "startup-intelligence",
+  "tags": [
+    "startup",
+    "financial-signals",
+    "unit-economics",
+    "runway",
+    "financial-signal-analysis"
+  ],
+  "summary": "Financial health proxy and unit economics specialist",
+  "capabilities": {
+    "skills": [
+      "financial-signal-analysis",
+      "unit-economics",
+      "burn-runway"
+    ]
+  },
+  "webhook_port": 9107
+}

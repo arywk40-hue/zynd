@@ -10,6 +10,7 @@ from zyndai_agent.agent import ZyndAIAgent
 from zyndai_agent.message import AgentMessage
 
 from orchestrator.reputation import ReputationStore
+from shared.llm import required_fields_for_capability
 from shared.schemas import AgentTaskResponse, CandidateAgent, Subtask
 from shared.utils import get_logger, timed
 
@@ -25,6 +26,25 @@ def _candidate_requires_payment(candidate: CandidateAgent) -> bool:
     card = candidate.card or {}
     payment = card.get("payment") or {}
     return bool(card.get("pricing") or payment.get("premium_required"))
+
+
+def _schema_quality(capability: str, data: list[dict]) -> float:
+    required = required_fields_for_capability(capability)
+    if not required:
+        return 0.75
+    if not data:
+        return 0.0
+    scored: list[float] = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        present = sum(
+            1 for field in required if item.get(field) not in {"", None, [], {}, ()}
+        )
+        scored.append(present / len(required))
+    if not scored:
+        return 0.0
+    return sum(scored) / len(scored)
 
 
 @dataclass(frozen=True)
@@ -108,13 +128,6 @@ async def _call_agent(
     log.info("[Webhook] POST %s (%s)", sync_url, candidate.display_identity)
 
     def _post():
-<<<<<<< HEAD
-        if _x402_enabled():
-            return sender_agent.x402_processor.post(sync_url, json=msg.to_dict(), headers=headers, timeout=12)
-        if payment_token:
-            return requests.post(sync_url, json=msg.to_dict(), headers=headers, timeout=12)
-=======
->>>>>>> e1f74881116608741d2d8d55504580b6e37e4454
         try:
             return sender_agent.x402_processor.post(sync_url, json=msg.to_dict(), headers=headers, timeout=12)
         except Exception as e:  # noqa: BLE001
@@ -183,7 +196,9 @@ async def dispatch_with_failover(
                     in_reply_to=in_reply_to,
                 )
             )
-            store.update_observation(candidate.agent_id, latency_s=tr.latency_s, success=True)
+            quality = _schema_quality(task.capability, tr.value.data)
+            store.update_observation(candidate.agent_id, latency_s=tr.latency_s, success=True, quality_score=quality)
+            log.info("[Metrics] %s schema_quality=%.2f", candidate.display_identity, quality)
             if _candidate_requires_payment(candidate) and _x402_enabled():
                 log.info("\\[x402] Payment successful")
             return DispatchResult(response=tr.value, used_agent=candidate, latency_s=tr.latency_s, failovers=failovers)
@@ -199,13 +214,15 @@ async def dispatch_with_failover(
                             candidate=candidate,
                             task=task,
                             query=query,
-                            payment_token=payment_token,
-                            conversation_id=conversation_id,
-                            in_reply_to=in_reply_to,
-                        )
+                        payment_token=payment_token,
+                        conversation_id=conversation_id,
+                        in_reply_to=in_reply_to,
                     )
-                    store.update_observation(candidate.agent_id, latency_s=tr.latency_s, success=True)
-                    return DispatchResult(response=tr.value, used_agent=candidate, latency_s=tr.latency_s, failovers=failovers)
+                )
+                quality = _schema_quality(task.capability, tr.value.data)
+                store.update_observation(candidate.agent_id, latency_s=tr.latency_s, success=True, quality_score=quality)
+                log.info("[Metrics] %s schema_quality=%.2f", candidate.display_identity, quality)
+                return DispatchResult(response=tr.value, used_agent=candidate, latency_s=tr.latency_s, failovers=failovers)
                 except Exception as e2:  # noqa: BLE001
                     last_exc = e2
                     continue

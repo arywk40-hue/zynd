@@ -11,7 +11,7 @@ Orchestrator Agent (planner → discovery → ranking → async dispatch → agg
   ↓                             ↘ search_agents(..., federated=True, enrich=True)
 Zynd-compatible Directory (/v1/agents, /v1/search)
   ↑                                      ↓
-Agents (trend, funding, competitor, market-gap, risk)
+Agents (trend, funding, benchmarking, competitor, market-gap, financial-signals, risk)
   └─ /webhook/sync + /.well-known/agent.json (SDK runtime)
 ```
 
@@ -59,11 +59,19 @@ venture-swarm/
 │   │   ├── agent.py
 │   │   ├── prompts.py
 │   │   └── agent.config.json
+│   ├── benchmarking_agent/
+│   │   ├── agent.py
+│   │   ├── prompts.py
+│   │   └── agent.config.json
 │   ├── competitor_agent/
 │   │   ├── agent.py
 │   │   ├── prompts.py
 │   │   └── agent.config.json
 │   ├── market_gap_agent/
+│   │   ├── agent.py
+│   │   ├── prompts.py
+│   │   └── agent.config.json
+│   ├── financial_signals_agent/
 │   │   ├── agent.py
 │   │   ├── prompts.py
 │   │   └── agent.config.json
@@ -269,9 +277,13 @@ The orchestrator `/health` response includes:
 - `execution_difficulty`
 - `trends`
 - `funding_signals`
+- `funding_trajectory`
 - `competitors`
+- `comparables`
 - `market_gaps`
+- `financial_signals`
 - `risks`
+- `scorecard`
 - `agent_trace`
 
 ## Setup
@@ -315,14 +327,23 @@ X402_USDC_ASSET=0x036CbD53842c5426634e7929541eC2318f3dCF7e
 X402_FACILITATOR_URL=https://x402.org/facilitator
 ```
 
+Optional premium benchmarking agent toggle:
+
+```bash
+BENCHMARK_PREMIUM_REQUIRED=true
+BENCHMARK_PREMIUM_COST_USD=0.15
+```
+
 Run services:
 
 ```bash
 uvicorn registry.app:app --port 8000
 SERVICE_URL=http://localhost:8101 uvicorn agents.trend_agent.agent:app --port 8101
 SERVICE_URL=http://localhost:8102 PREMIUM_REQUIRED=true uvicorn agents.funding_agent.agent:app --port 8102
+SERVICE_URL=http://localhost:8106 uvicorn agents.benchmarking_agent.agent:app --port 8106
 SERVICE_URL=http://localhost:8103 uvicorn agents.competitor_agent.agent:app --port 8103
 SERVICE_URL=http://localhost:8104 uvicorn agents.market_gap_agent.agent:app --port 8104
+SERVICE_URL=http://localhost:8107 uvicorn agents.financial_signals_agent.agent:app --port 8107
 SERVICE_URL=http://localhost:8105 uvicorn agents.risk_agent.agent:app --port 8105
 PREMIUM_PAYMENT_TOKEN=$PREMIUM_PAYMENT_TOKEN uvicorn main:app --port 8001
 ```

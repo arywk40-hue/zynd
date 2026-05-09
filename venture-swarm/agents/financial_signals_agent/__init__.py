@@ -1,0 +1,1 @@
+"""Financial signals agent package."""

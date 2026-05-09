@@ -27,6 +27,12 @@ def plan(query: str) -> PlannedTasks:
         ),
         Subtask(
             id=str(uuid.uuid4()),
+            capability="benchmarking-analysis",
+            instruction="Find 3-5 comparable startups by model, market, ICP, GTM, and stage; include funding snapshots.",
+            keywords=["benchmarking-analysis", "comparable-startups", "comp-set-analysis"],
+        ),
+        Subtask(
+            id=str(uuid.uuid4()),
             capability="competitor-analysis",
             instruction="Assess competitive landscape and saturation; suggest differentiation angles.",
             keywords=["competitor-analysis", "saturation-analysis"],
@@ -36,6 +42,12 @@ def plan(query: str) -> PlannedTasks:
             capability="market-gap-analysis",
             instruction="Find underserved segments and propose the best wedge entry point.",
             keywords=["market-gap-analysis", "underserved-market-detection"],
+        ),
+        Subtask(
+            id=str(uuid.uuid4()),
+            capability="financial-signal-analysis",
+            instruction="Estimate revenue proxies, burn/runway, and unit economics signals for this idea.",
+            keywords=["financial-signal-analysis", "unit-economics", "burn-runway"],
         ),
         Subtask(
             id=str(uuid.uuid4()),

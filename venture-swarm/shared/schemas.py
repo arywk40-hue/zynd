@@ -126,6 +126,31 @@ class OpportunitySummary(BaseModel):
     monetization: str
 
 
+class FundingTrajectory(BaseModel):
+    round_progression: str
+    trend_direction: str
+    valuation_direction: str
+    investor_quality: str
+    summary: str | None = None
+
+
+class OutcomeForecast(BaseModel):
+    breakout: float = Field(ge=0.0, le=1.0)
+    steady: float = Field(ge=0.0, le=1.0)
+    stall: float = Field(ge=0.0, le=1.0)
+
+
+class InvestmentScorecard(BaseModel):
+    overall_score: float = Field(ge=0.0, le=10.0)
+    momentum_score: float = Field(ge=0.0, le=10.0)
+    moat_score: float = Field(ge=0.0, le=10.0)
+    financial_health_score: float = Field(ge=0.0, le=10.0)
+    founder_fit_score: float = Field(ge=0.0, le=10.0)
+    go_to_market_risk: Literal["Low", "Medium", "High"]
+    outcome_forecast: OutcomeForecast
+    key_assumptions: list[str] = Field(default_factory=list)
+
+
 class StartupReport(BaseModel):
     query: str
     top_opportunity: OpportunitySummary
@@ -135,7 +160,11 @@ class StartupReport(BaseModel):
     execution_difficulty: Literal["Low", "Medium", "High"]
     trends: list[dict[str, Any]] = Field(default_factory=list)
     funding_signals: list[dict[str, Any]] = Field(default_factory=list)
+    funding_trajectory: FundingTrajectory | None = None
     competitors: list[dict[str, Any]] = Field(default_factory=list)
+    comparables: list[dict[str, Any]] = Field(default_factory=list)
     market_gaps: list[dict[str, Any]] = Field(default_factory=list)
+    financial_signals: list[dict[str, Any]] = Field(default_factory=list)
     risks: list[dict[str, Any]] = Field(default_factory=list)
+    scorecard: InvestmentScorecard | None = None
     agent_trace: list[dict[str, Any]] = Field(default_factory=list)

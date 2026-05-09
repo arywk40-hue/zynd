@@ -255,8 +255,10 @@ class VentureSwarmOrchestrator:
             query=query,
             trend=responses["trend-analysis"],
             funding=responses["funding-analysis"],
+            benchmarking=responses["benchmarking-analysis"],
             competitors=responses["competitor-analysis"],
             market_gaps=responses["market-gap-analysis"],
+            financial_signals=responses["financial-signal-analysis"],
             risks=responses["risk-analysis"],
             agent_trace=trace,
         )

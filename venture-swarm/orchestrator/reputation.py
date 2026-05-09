@@ -10,7 +10,7 @@ from shared.schemas import CandidateAgent
 class AgentObservation:
     latency_s: float = 1.5
     success_rate: float = 0.9
-    quality_score: float = 0.8
+    quality_score: float = 0.82
     reliability: float = 0.9
 
 
@@ -42,23 +42,25 @@ class ReputationStore:
         trust_component = max(candidate.trust_score, candidate.search_score)
 
         return (
-            (trust_component * 0.30)
-            + (heartbeat_component * 0.20)
+            (trust_component * 0.28)
+            + (heartbeat_component * 0.18)
             + (obs.success_rate * 0.20)
-            + (latency_component * 0.15)
+            + (latency_component * 0.14)
             + (freshness_component * 0.10)
-            + (obs.quality_score * 0.05)
+            + (obs.quality_score * 0.10)
         )
 
-    def update_observation(self, agent_id: str, *, latency_s: float, success: bool) -> None:
+    def update_observation(self, agent_id: str, *, latency_s: float, success: bool, quality_score: float | None = None) -> None:
         prev = self.observed.get(agent_id, AgentObservation())
         new_latency = (prev.latency_s * 0.8) + (latency_s * 0.2)
         new_success_rate = (prev.success_rate * 0.9) + ((1.0 if success else 0.0) * 0.1)
         new_reliability = (prev.reliability * 0.9) + ((1.0 if success else 0.0) * 0.1)
+        quality_score = prev.quality_score if quality_score is None else quality_score
+        new_quality = (prev.quality_score * 0.7) + (quality_score * 0.3)
         self.observed[agent_id] = AgentObservation(
             latency_s=new_latency,
             success_rate=new_success_rate,
-            quality_score=prev.quality_score,
+            quality_score=new_quality,
             reliability=new_reliability,
         )
 

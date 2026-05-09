@@ -25,8 +25,10 @@ services:
       - directory
       - trend-agent
       - funding-agent
+      - benchmarking-agent
       - competitor-agent
       - market-gap-agent
+      - financial-signals-agent
       - risk-agent
     volumes:
       - zynd-keys:/app/.keys
@@ -148,6 +150,56 @@ services:
       timeout: 3s
       retries: 3
 
+  benchmarking-agent:
+    build: .
+    command: uvicorn agents.benchmarking_agent.agent:app --host 0.0.0.0 --port 8106
+    stop_grace_period: 10s
+    ports:
+      - "8106:8106"
+    depends_on:
+      - directory
+    volumes:
+      - zynd-keys:/app/.keys
+    environment:
+      - DIRECTORY_URL=http://directory:8000
+      - ZYND_REGISTRY_URL=http://directory:8000
+      - SERVICE_URL=http://benchmarking-agent:8106
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ZNS_ROOT=${ZNS_ROOT:-zns01.zynd.ai}
+      - ZNS_DEVELOPER_HANDLE=${ZNS_DEVELOPER_HANDLE:-venture-swarm}
+      - X402_ENABLED=${X402_ENABLED:-false}
+      - X402_NETWORK=${X402_NETWORK:-eip155:84532}
+      - X402_NETWORK_NAME=${X402_NETWORK_NAME:-Base Sepolia}
+      - X402_USDC_ASSET=${X402_USDC_ASSET:-0x036CbD53842c5426634e7929541eC2318f3dCF7e}
+      - X402_FACILITATOR_URL=${X402_FACILITATOR_URL:-https://x402.org/facilitator}
+      - X402_SYNC_FACILITATOR_ON_START=${X402_SYNC_FACILITATOR_ON_START:-true}
+      - PREMIUM_COST_USD=${BENCHMARK_PREMIUM_COST_USD:-0.15}
+      - PREMIUM_REQUIRED=${BENCHMARK_PREMIUM_REQUIRED:-false}
+      - LLM_PROVIDER=${LLM_PROVIDER:-none}
+      - LLM_TIMEOUT_S=${LLM_TIMEOUT_S:-20}
+      - LLM_MAX_ITEMS=${LLM_MAX_ITEMS:-5}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - GROQ_BASE_URL=${GROQ_BASE_URL:-https://api.groq.com/openai/v1}
+      - GROQ_MODEL=${GROQ_MODEL:-llama-3.3-70b-versatile}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-1.5-flash}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-3-5-haiku-latest}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
+      - MISTRAL_BASE_URL=${MISTRAL_BASE_URL:-https://api.mistral.ai/v1}
+      - MISTRAL_MODEL=${MISTRAL_MODEL:-mistral-small-latest}
+      - CEREBRAS_API_KEY=${CEREBRAS_API_KEY:-}
+      - CEREBRAS_BASE_URL=${CEREBRAS_BASE_URL:-https://api.cerebras.ai/v1}
+      - CEREBRAS_MODEL=${CEREBRAS_MODEL:-llama3.1-8b}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8106/health', timeout=2).read()"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+
   competitor-agent:
     build: .
     command: uvicorn agents.competitor_agent.agent:app --host 0.0.0.0 --port 8103
@@ -240,6 +292,54 @@ services:
       - CEREBRAS_MODEL=${CEREBRAS_MODEL:-llama3.1-8b}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8104/health', timeout=2).read()"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+
+  financial-signals-agent:
+    build: .
+    command: uvicorn agents.financial_signals_agent.agent:app --host 0.0.0.0 --port 8107
+    stop_grace_period: 10s
+    ports:
+      - "8107:8107"
+    depends_on:
+      - directory
+    volumes:
+      - zynd-keys:/app/.keys
+    environment:
+      - DIRECTORY_URL=http://directory:8000
+      - ZYND_REGISTRY_URL=http://directory:8000
+      - SERVICE_URL=http://financial-signals-agent:8107
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ZNS_ROOT=${ZNS_ROOT:-zns01.zynd.ai}
+      - ZNS_DEVELOPER_HANDLE=${ZNS_DEVELOPER_HANDLE:-venture-swarm}
+      - X402_ENABLED=${X402_ENABLED:-false}
+      - X402_NETWORK=${X402_NETWORK:-eip155:84532}
+      - X402_NETWORK_NAME=${X402_NETWORK_NAME:-Base Sepolia}
+      - X402_USDC_ASSET=${X402_USDC_ASSET:-0x036CbD53842c5426634e7929541eC2318f3dCF7e}
+      - X402_FACILITATOR_URL=${X402_FACILITATOR_URL:-https://x402.org/facilitator}
+      - X402_SYNC_FACILITATOR_ON_START=${X402_SYNC_FACILITATOR_ON_START:-true}
+      - LLM_PROVIDER=${LLM_PROVIDER:-none}
+      - LLM_TIMEOUT_S=${LLM_TIMEOUT_S:-20}
+      - LLM_MAX_ITEMS=${LLM_MAX_ITEMS:-5}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - GROQ_BASE_URL=${GROQ_BASE_URL:-https://api.groq.com/openai/v1}
+      - GROQ_MODEL=${GROQ_MODEL:-llama-3.3-70b-versatile}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-1.5-flash}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-3-5-haiku-latest}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
+      - MISTRAL_BASE_URL=${MISTRAL_BASE_URL:-https://api.mistral.ai/v1}
+      - MISTRAL_MODEL=${MISTRAL_MODEL:-mistral-small-latest}
+      - CEREBRAS_API_KEY=${CEREBRAS_API_KEY:-}
+      - CEREBRAS_BASE_URL=${CEREBRAS_BASE_URL:-https://api.cerebras.ai/v1}
+      - CEREBRAS_MODEL=${CEREBRAS_MODEL:-llama3.1-8b}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8107/health', timeout=2).read()"]
       interval: 15s
       timeout: 3s
       retries: 3
