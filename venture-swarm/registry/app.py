@@ -91,6 +91,7 @@ class _Entry:
 
 _agents: Dict[str, _Entry] = {}
 _started_at = time.monotonic()
+_HEARTBEAT_STALE_TIMEOUT_S = 60.0
 
 
 def _utc_now_iso() -> str:
@@ -203,11 +204,29 @@ def _entry_to_search_result(entry: _Entry, enrich: bool) -> dict[str, Any]:
     return result
 
 
+def _mark_stale_agents_inactive() -> None:
+    now = time.monotonic()
+    for entry in _agents.values():
+        if entry.status != "active":
+            continue
+        age_s = now - entry.updated_mono
+        if age_s <= _HEARTBEAT_STALE_TIMEOUT_S:
+            continue
+        entry.status = "inactive"
+        entry.updated_mono = now
+        log.warning(
+            "[Heartbeat] %s marked inactive after %.1fs without heartbeat",
+            entry.fqan or entry.name,
+            age_s,
+        )
+
+
 app = FastAPI(title="VentureSwarm Directory", version="0.2.0")
 
 
 @app.get("/health")
 async def health() -> dict[str, int | float | str]:
+    _mark_stale_agents_inactive()
     active_agents = sum(1 for entry in _agents.values() if entry.status == "active")
     log.info("[Metrics] active_agents=%d registered_agents=%d", active_agents, len(_agents))
     return {
@@ -297,6 +316,7 @@ async def update_entity_v1(entity_id: str, updates: dict[str, Any]) -> dict[str,
 
 @app.post("/v1/search")
 async def search_v1(req: SearchV1Request) -> dict[str, Any]:
+    _mark_stale_agents_inactive()
     query = (req.query or "").strip().lower()
     normalized_query = query.replace("-", " ")
     requested_tags = set((req.tags or []))

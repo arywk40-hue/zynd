@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any
+import time
+from typing import Any, Callable
 
 import httpx
 
@@ -11,6 +12,9 @@ from shared.utils import get_logger
 
 
 log = get_logger("LLM")
+_RETRYABLE_STATUS_CODES = {429, 503}
+_MAX_LLM_RETRIES = 3
+_RETRY_BASE_DELAY_S = 0.8
 
 
 _REQUIRED_FIELDS: dict[str, list[str]] = {
@@ -97,56 +101,56 @@ def generate_structured_items(
     try:
         log.info("[LLM] %s generating live %s items", provider, capability)
         if provider == "openai":
-            raw = _call_openai_compatible(
+            raw = _call_with_retries(provider=provider, capability=capability, call=lambda: _call_openai_compatible(
                 base_url=settings.openai_base_url,
                 api_key=_require(settings.openai_api_key, "OPENAI_API_KEY"),
                 model=settings.openai_model,
                 system_prompt=system_prompt,
                 prompt=prompt,
                 timeout_s=settings.llm_timeout_s,
-            )
+            ))
         elif provider == "groq":
-            raw = _call_openai_compatible(
+            raw = _call_with_retries(provider=provider, capability=capability, call=lambda: _call_openai_compatible(
                 base_url=settings.groq_base_url,
                 api_key=_require(settings.groq_api_key, "GROQ_API_KEY"),
                 model=settings.groq_model,
                 system_prompt=system_prompt,
                 prompt=prompt,
                 timeout_s=settings.llm_timeout_s,
-            )
+            ))
         elif provider == "gemini":
-            raw = _call_gemini(
+            raw = _call_with_retries(provider=provider, capability=capability, call=lambda: _call_gemini(
                 api_key=_require(settings.gemini_api_key, "GEMINI_API_KEY"),
                 model=settings.gemini_model,
                 prompt=f"{system_prompt}\n\n{prompt}",
                 timeout_s=settings.llm_timeout_s,
-            )
+            ))
         elif provider == "anthropic":
-            raw = _call_anthropic(
+            raw = _call_with_retries(provider=provider, capability=capability, call=lambda: _call_anthropic(
                 api_key=_require(settings.anthropic_api_key, "ANTHROPIC_API_KEY"),
                 model=settings.anthropic_model,
                 system_prompt=system_prompt,
                 prompt=prompt,
                 timeout_s=settings.llm_timeout_s,
-            )
+            ))
         elif provider == "mistral":
-            raw = _call_openai_compatible(
+            raw = _call_with_retries(provider=provider, capability=capability, call=lambda: _call_openai_compatible(
                 base_url=settings.mistral_base_url,
                 api_key=_require(settings.mistral_api_key, "MISTRAL_API_KEY"),
                 model=settings.mistral_model,
                 system_prompt=system_prompt,
                 prompt=prompt,
                 timeout_s=settings.llm_timeout_s,
-            )
+            ))
         elif provider == "cerebras":
-            raw = _call_openai_compatible(
+            raw = _call_with_retries(provider=provider, capability=capability, call=lambda: _call_openai_compatible(
                 base_url=settings.cerebras_base_url,
                 api_key=_require(settings.cerebras_api_key, "CEREBRAS_API_KEY"),
                 model=settings.cerebras_model,
                 system_prompt=system_prompt,
                 prompt=prompt,
                 timeout_s=settings.llm_timeout_s,
-            )
+            ))
         else:
             raise RuntimeError(f"Unsupported LLM_PROVIDER={settings.llm_provider!r}")
 
@@ -157,6 +161,38 @@ def generate_structured_items(
     except Exception as e:  # noqa: BLE001
         log.error("[Error] %s LLM generation failed via %s: %s", capability, provider, e)
         return []
+
+
+def _call_with_retries(*, provider: str, capability: str, call: Callable[[], str]) -> str:
+    """Run a synchronous provider call with exponential backoff on HTTP 429/503 responses."""
+    try:
+        return call()
+    except httpx.HTTPStatusError as e:
+        status_code = e.response.status_code if e.response is not None else None
+        if status_code not in _RETRYABLE_STATUS_CODES:
+            raise
+
+    for retry_index in range(1, _MAX_LLM_RETRIES + 1):
+        delay_s = _RETRY_BASE_DELAY_S * (2 ** (retry_index - 1))
+        log.warning(
+            "[LLM] %s %s failed with HTTP %s (retry %d/%d); retrying in %.1fs",
+            provider,
+            capability,
+            status_code,
+            retry_index,
+            _MAX_LLM_RETRIES,
+            delay_s,
+        )
+        time.sleep(delay_s)
+
+        try:
+            return call()
+        except httpx.HTTPStatusError as e:
+            status_code = e.response.status_code if e.response is not None else None
+            is_retryable = status_code in _RETRYABLE_STATUS_CODES
+            if not is_retryable or retry_index >= _MAX_LLM_RETRIES:
+                raise
+
 
 
 def _build_prompt(

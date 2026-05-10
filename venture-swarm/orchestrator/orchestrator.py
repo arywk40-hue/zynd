@@ -13,7 +13,7 @@ from orchestrator.dispatcher import dispatch_with_failover
 from orchestrator.planner import plan
 from orchestrator.reputation import ReputationStore
 from shared.config import Settings
-from shared.schemas import StartupReport
+from shared.schemas import AgentTaskResponse, StartupReport
 from shared.utils import get_logger
 from shared.zynd_runtime import (
     build_zns_fqan,
@@ -251,6 +251,20 @@ class VentureSwarmOrchestrator:
         ]
 
         responses = {d.response.capability: d.response for d in dispatches}
+        required_capabilities = [task.capability for task in tasks.tasks]
+
+        for capability in required_capabilities:
+            if capability in responses:
+                continue
+            log.warning("[Recovery] Missing %s response; using empty fallback payload", capability)
+            responses[capability] = AgentTaskResponse(
+                task_id=f"missing-{capability}",
+                agent_id="unavailable",
+                agent_name="unavailable",
+                capability=capability,
+                data=[],
+                notes=["No successful response returned for this capability; fallback data applied."],
+            )
 
         report = aggregate(
             query=query,
