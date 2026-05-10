@@ -33,6 +33,15 @@ class Settings(BaseSettings):
     llm_timeout_s: float = 20.0
     llm_max_items: int = 5
 
+    # Optional real web-data grounding. When enabled, agents fetch Apify context
+    # before asking the configured LLM to structure/analyze the result.
+    apify_enabled: bool = False
+    apify_api_token: str | None = None
+    apify_max_items: int = 5
+    apify_google_search_actor: str = "apify/google-search-scraper"
+    apify_google_news_actor: str = "apify/google-news-scraper"
+    apify_reddit_actor: str = "trudax/reddit-scraper"
+
     openai_api_key: str | None = None
     openai_base_url: str = "https://api.openai.com/v1"
     openai_model: str = "gpt-4o-mini"

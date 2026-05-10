@@ -8,3 +8,4 @@ cryptography==46.0.5
 zyndai-agent[heartbeat]
 paho-mqtt==2.1.0
 websockets>=14.0
+apify-client>=1.8.0

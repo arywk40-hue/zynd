@@ -7,6 +7,7 @@ from typing import Any, Callable
 
 import httpx
 
+from shared.apify_tools import fetch_context_for_capability, format_context_for_prompt, items_from_apify_context
 from shared.config import Settings
 from shared.utils import get_logger
 
@@ -85,17 +86,32 @@ def generate_structured_items(
     user_input: str,
 ) -> list[dict]:
     provider = settings.llm_provider.strip().lower()
+    required_fields = _REQUIRED_FIELDS.get(capability, [])
+    apify_context = fetch_context_for_capability(
+        settings=settings,
+        capability=capability,
+        query=user_input,
+    )
+
     if provider in {"", "none", "off", "disabled"}:
+        if apify_context and required_fields:
+            log.info("[Apify] No LLM configured; using direct structured extraction for %s", capability)
+            return items_from_apify_context(
+                capability=capability,
+                context_items=apify_context,
+                required_fields=required_fields,
+                max_items=settings.llm_max_items,
+            )
         log.warning("[LLM] LLM_PROVIDER is not configured; %s returning no live items", capability)
         return []
 
-    required_fields = _REQUIRED_FIELDS.get(capability, [])
     prompt = _build_prompt(
         capability=capability,
         system_prompt=system_prompt,
         user_input=user_input,
         max_items=settings.llm_max_items,
         required_fields=required_fields,
+        apify_context=format_context_for_prompt(apify_context),
     )
 
     try:
@@ -202,21 +218,29 @@ def _build_prompt(
     user_input: str,
     max_items: int,
     required_fields: list[str],
+    apify_context: str = "",
 ) -> str:
-    return "\n".join(
-        [
-            system_prompt,
-            "",
-            f"Capability: {capability}",
-            f"Return {max_items} or fewer concise, decision-grade items.",
-            f"Each item must include these fields: {', '.join(required_fields)}.",
-            'Return strict JSON only in this shape: {"items":[{...}]}',
-            "Do not include markdown, explanations, citations blocks, or extra keys outside items.",
-            "",
-            "Startup intelligence task:",
-            user_input,
-        ]
-    )
+    lines = [
+        system_prompt,
+        "",
+        f"Capability: {capability}",
+        f"Return {max_items} or fewer concise, decision-grade items.",
+        f"Each item must include these fields: {', '.join(required_fields)}.",
+        'Return strict JSON only in this shape: {"items":[{...}]}',
+        "Do not include markdown, explanations, citations blocks, or extra keys outside items.",
+        "",
+    ]
+    if apify_context:
+        lines.extend(
+            [
+                "Real-world context scraped via Apify. Use it as the primary grounding source.",
+                "When a field asks for evidence, include the most relevant source title or URL.",
+                apify_context,
+                "",
+            ]
+        )
+    lines.extend(["Startup intelligence task:", user_input])
+    return "\n".join(lines)
 
 
 def _require(value: str | None, env_name: str) -> str:
@@ -317,7 +341,11 @@ def _strip_code_fence(raw: str) -> str:
 
 
 def _normalize_item(item: dict[str, Any], required_fields: list[str]) -> dict[str, Any]:
-    return {field: item.get(field, _empty_value(field)) for field in required_fields}
+    normalized = {field: item.get(field, _empty_value(field)) for field in required_fields}
+    for optional_field in ("source", "source_url", "published_at"):
+        if item.get(optional_field):
+            normalized[optional_field] = item[optional_field]
+    return normalized
 
 
 def _empty_value(field: str) -> Any:

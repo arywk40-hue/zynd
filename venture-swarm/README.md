@@ -45,6 +45,7 @@ It does not implement Zynd platform internals such as mesh networking, gossip, D
 - pydantic
 - rich
 - websockets
+- apify-client
 
 ## Project Structure
 
@@ -96,6 +97,8 @@ venture-swarm/
 │   ├── schemas.py
 │   ├── utils.py
 │   ├── logging_config.py
+│   ├── llm.py
+│   ├── apify_tools.py
 │   ├── zynd_runtime.py
 │   └── config.py
 ├── docs/
@@ -182,6 +185,29 @@ The orchestrator reputation layer tracks runtime latency, success rate, schema q
 - `/health` includes `agent_id` and `heartbeat_connected`.
 - Discovery requests active agents only and ignores offline registry entries.
 - Shutdown calls the SDK runtime stop path so heartbeat sessions close cleanly.
+
+## Real Web Grounding With Apify
+
+VentureSwarm can enrich every agent with live scraped web context before the LLM generates structured JSON. This keeps the demo grounded in current market signals instead of relying only on model memory.
+
+Flow:
+
+```text
+Agent task → Apify actor → grounded snippets → LLM JSON structuring → AgentTaskResponse
+```
+
+With `LLM_PROVIDER=none`, agents still return best-effort structured items directly from Apify context. The strongest live demo mode is Apify plus a configured LLM provider.
+
+Capability mapping:
+
+- `trend-agent`: Google Search market trend context
+- `funding-agent`: Google News funding and VC context
+- `competitor-agent`: Google Search competitor and alternatives context
+- `market-gap-agent`: Reddit pain-point context
+- `startup-compare-agent`: Google Search comparable startup context
+- `financial-signals-agent`: Google News revenue, margin, burn, and runway context
+- `risk-agent`: Google News regulatory, legal, privacy, and security risk context
+- `benchmarking-agent`: Google Search market sizing and benchmark context
 
 ## Base Sepolia And x402 Payments
 
@@ -340,6 +366,14 @@ LLM_MAX_ITEMS=5
 
 Other supported providers are `openai`, `gemini`, `anthropic`, `mistral`, and `cerebras`. Put API keys in Space secrets, not in `.env` or README.
 
+Optional Apify grounding secrets:
+
+```text
+APIFY_ENABLED=true
+APIFY_API_TOKEN=<secret>
+APIFY_MAX_ITEMS=5
+```
+
 For the Hugging Face live app, premium gates default off so the report works without funded testnet wallets:
 
 ```text
@@ -384,6 +418,14 @@ OPENAI_MODEL=gpt-4o-mini
 Supported providers are `openai`, `groq`, `gemini`, `anthropic`, `mistral`, and `cerebras`. Keep `LLM_PROVIDER=none` to run the distributed infrastructure without live model calls.
 
 For OpenAI-compatible gateways, set `OPENAI_BASE_URL` and `OPENAI_MODEL` with `LLM_PROVIDER=openai`.
+
+Optional Apify grounding:
+
+```bash
+APIFY_ENABLED=true
+APIFY_API_TOKEN=apify_api_...
+APIFY_MAX_ITEMS=5
+```
 
 Optional Base Sepolia x402 setup:
 
