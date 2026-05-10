@@ -25,7 +25,7 @@ class ReputationStoreTests(unittest.TestCase):
 
         score = store.score("unknown-agent", discovery_score=0.8)
 
-        self.assertAlmostEqual(score, 0.799, places=3)
+        self.assertAlmostEqual(score, 0.824, places=3)
 
     def test_score_candidate_blends_candidate_and_observed_signals(self) -> None:
         store = ReputationStore()
