@@ -53,8 +53,18 @@ def _pick_execution_difficulty(risks: list[dict]) -> str:
 def _average_confidence(items: list[dict], default: float = 0.65) -> float:
     if not items:
         return default
-    values = [float(item.get("confidence", default)) for item in items if isinstance(item, dict)]
+    values = [_coerce_confidence(item.get("confidence"), default) for item in items if isinstance(item, dict)]
     return sum(values) / max(1, len(values))
+
+
+def _coerce_confidence(value, default: float) -> float:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return default
+    if parsed > 1.0 and parsed <= 10.0:
+        parsed = parsed / 10.0
+    return max(0.0, min(1.0, parsed))
 
 
 def _funding_trajectory(funding: list[dict]) -> FundingTrajectory | None:

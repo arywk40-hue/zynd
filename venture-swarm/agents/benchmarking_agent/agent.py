@@ -217,7 +217,7 @@ async def lifespan(_: FastAPI):
         service_url=_service_url(),
         default_name="benchmarking-agent",
         default_description="Benchmarking agent for comparable startups",
-        default_port=9106,
+        default_port=9108,
         config_dir=".agent-benchmarking",
         price=(f"${_premium_cost():.2f}" if _premium_required() else None),
     )

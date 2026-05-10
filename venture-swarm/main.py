@@ -424,7 +424,7 @@ async def index() -> str:
       .status { justify-content: flex-start; }
       .grid { grid-template-columns: 1fr; }
       .advanced-grid { grid-template-columns: 1fr; }
-      .map-shell { min-height: 910px; }
+      .map-shell { min-height: 1120px; }
       .map-graph {
         transform: none !important;
       }
@@ -594,6 +594,15 @@ async def index() -> str:
         `Execution difficulty: ${report.execution_difficulty || "Unknown"}`,
         `Highest visible risk: ${firstText(report.risks, ["severity"], "Unknown")}`
       ];
+      const scorecard = report.scorecard || {};
+      const forecast = scorecard.outcome_forecast || {};
+      const scorecardItems = [
+        `Momentum: ${scorecard.momentum_score ?? "N/A"} / 10`,
+        `Moat: ${scorecard.moat_score ?? "N/A"} / 10`,
+        `Financial Health: ${scorecard.financial_health_score ?? "N/A"} / 10`,
+        `Founder Fit: ${scorecard.founder_fit_score ?? "N/A"} / 10`,
+        `Breakout probability: ${forecast.breakout ?? "N/A"}`,
+      ];
       const comparisons = uniqueValues([
         ...(report.benchmarking_comps || []).map((item) => {
           const name = item.company || item.name || item.startup || "Benchmark startup";
@@ -622,7 +631,7 @@ async def index() -> str:
             id: "profit",
             title: "Profit",
             accent: "#39c78f",
-            top: 12,
+            top: 10,
             mobileTop: 185,
             summary: `${report.monetization_potential || "Unknown"} monetization potential`,
             items: profitSignals,
@@ -631,8 +640,8 @@ async def index() -> str:
             id: "people",
             title: "People",
             accent: "#70a6ff",
-            top: 25,
-            mobileTop: 330,
+            top: 22,
+            mobileTop: 315,
             summary: "Primary users and buyers",
             items: people,
           },
@@ -640,8 +649,8 @@ async def index() -> str:
             id: "target",
             title: "Target",
             accent: "#b184ff",
-            top: 38,
-            mobileTop: 475,
+            top: 34,
+            mobileTop: 445,
             summary: "Market wedge and timing",
             items: targets,
           },
@@ -649,17 +658,26 @@ async def index() -> str:
             id: "compare",
             title: "Compare",
             accent: "#63d7e6",
-            top: 51,
-            mobileTop: 620,
+            top: 46,
+            mobileTop: 575,
             summary: "Similar startup funding, profit, and loss patterns",
             items: comparisons.length ? comparisons : ["No comparable startup benchmark yet"],
+          },
+          {
+            id: "scorecard",
+            title: "Scorecard",
+            accent: "#f0c060",
+            top: 58,
+            mobileTop: 705,
+            summary: `Overall: ${scorecard.overall_score ?? "N/A"} / 10`,
+            items: scorecardItems,
           },
           {
             id: "disadvantages",
             title: "Disadvantages",
             accent: "#ff6f72",
-            top: 64,
-            mobileTop: 765,
+            top: 70,
+            mobileTop: 835,
             summary: "Risks that weaken the opportunity",
             items: disadvantages,
           },
@@ -667,8 +685,8 @@ async def index() -> str:
             id: "loss",
             title: "Loss",
             accent: "#ffb45f",
-            top: 77,
-            mobileTop: 910,
+            top: 82,
+            mobileTop: 965,
             summary: "Downside signals",
             items: losses,
           },
