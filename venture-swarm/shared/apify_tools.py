@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import time
 from typing import Any
 
 from shared.config import Settings
@@ -10,6 +12,7 @@ log = get_logger("Apify")
 
 _MAX_TEXT_LEN = 420
 _DEFAULT_MAX_ITEMS = 5
+_CACHE: dict[str, tuple[float, list[dict[str, Any]]]] = {}
 
 _CAPABILITY_ACTORS = {
     "trend-analysis": "google_search",
@@ -54,6 +57,11 @@ def fetch_context_for_capability(
     max_items = max(1, min(settings.apify_max_items or _DEFAULT_MAX_ITEMS, 10))
     actor_id = _actor_id(settings, actor_key)
     run_input = _actor_input(actor_key, _capability_query(capability, query), max_items)
+    cache_key = _cache_key(actor_id, run_input)
+    cached = _cached_items(cache_key, settings.apify_cache_ttl_s)
+    if cached is not None:
+        log.info("[Apify] Cache hit for %s (%d grounding item(s))", capability, len(cached))
+        return cached
 
     try:
         from apify_client import ApifyClient
@@ -64,7 +72,11 @@ def fetch_context_for_capability(
     try:
         log.info("[Apify] Running %s for %s", actor_id, capability)
         client = ApifyClient(settings.apify_api_token)
-        run = client.actor(actor_id).call(run_input=run_input)
+        actor = client.actor(actor_id)
+        try:
+            run = actor.call(run_input=run_input, timeout_secs=settings.apify_timeout_s)
+        except TypeError:
+            run = actor.call(run_input=run_input)
         dataset_id = run.get("defaultDatasetId")
         if not dataset_id:
             log.warning("[Apify] %s finished without a dataset", actor_id)
@@ -81,6 +93,7 @@ def fetch_context_for_capability(
                 break
 
         log.info("[Apify] %s returned %d grounding item(s)", capability, len(items))
+        _CACHE[cache_key] = (time.monotonic(), items)
         return items
     except Exception as e:  # noqa: BLE001
         log.warning("[Apify] Context fetch failed for %s via %s: %s", capability, actor_id, e)
@@ -126,6 +139,23 @@ def _actor_id(settings: Settings, actor_key: str) -> str:
     if actor_key == "reddit":
         return settings.apify_reddit_actor
     return settings.apify_google_search_actor
+
+
+def _cache_key(actor_id: str, run_input: dict[str, Any]) -> str:
+    return f"{actor_id}:{json.dumps(run_input, sort_keys=True, ensure_ascii=True)}"
+
+
+def _cached_items(cache_key: str, ttl_s: int) -> list[dict[str, Any]] | None:
+    if ttl_s <= 0:
+        return None
+    cached = _CACHE.get(cache_key)
+    if not cached:
+        return None
+    created_at, items = cached
+    if time.monotonic() - created_at > ttl_s:
+        _CACHE.pop(cache_key, None)
+        return None
+    return [dict(item) for item in items]
 
 
 def _capability_query(capability: str, query: str) -> str:

@@ -50,6 +50,8 @@ services:
       - APIFY_ENABLED=${APIFY_ENABLED:-false}
       - APIFY_API_TOKEN=${APIFY_API_TOKEN:-}
       - APIFY_MAX_ITEMS=${APIFY_MAX_ITEMS:-5}
+      - APIFY_TIMEOUT_S=${APIFY_TIMEOUT_S:-20}
+      - APIFY_CACHE_TTL_S=${APIFY_CACHE_TTL_S:-600}
       - APIFY_GOOGLE_SEARCH_ACTOR=${APIFY_GOOGLE_SEARCH_ACTOR:-apify/google-search-scraper}
       - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-apify/google-news-scraper}
       - APIFY_REDDIT_ACTOR=${APIFY_REDDIT_ACTOR:-trudax/reddit-scraper}
@@ -88,6 +90,8 @@ services:
       - APIFY_ENABLED=${APIFY_ENABLED:-false}
       - APIFY_API_TOKEN=${APIFY_API_TOKEN:-}
       - APIFY_MAX_ITEMS=${APIFY_MAX_ITEMS:-5}
+      - APIFY_TIMEOUT_S=${APIFY_TIMEOUT_S:-20}
+      - APIFY_CACHE_TTL_S=${APIFY_CACHE_TTL_S:-600}
       - APIFY_GOOGLE_SEARCH_ACTOR=${APIFY_GOOGLE_SEARCH_ACTOR:-apify/google-search-scraper}
       - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-apify/google-news-scraper}
       - APIFY_REDDIT_ACTOR=${APIFY_REDDIT_ACTOR:-trudax/reddit-scraper}
@@ -144,6 +148,8 @@ services:
       - APIFY_ENABLED=${APIFY_ENABLED:-false}
       - APIFY_API_TOKEN=${APIFY_API_TOKEN:-}
       - APIFY_MAX_ITEMS=${APIFY_MAX_ITEMS:-5}
+      - APIFY_TIMEOUT_S=${APIFY_TIMEOUT_S:-20}
+      - APIFY_CACHE_TTL_S=${APIFY_CACHE_TTL_S:-600}
       - APIFY_GOOGLE_SEARCH_ACTOR=${APIFY_GOOGLE_SEARCH_ACTOR:-apify/google-search-scraper}
       - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-apify/google-news-scraper}
       - APIFY_REDDIT_ACTOR=${APIFY_REDDIT_ACTOR:-trudax/reddit-scraper}
@@ -200,6 +206,8 @@ services:
       - APIFY_ENABLED=${APIFY_ENABLED:-false}
       - APIFY_API_TOKEN=${APIFY_API_TOKEN:-}
       - APIFY_MAX_ITEMS=${APIFY_MAX_ITEMS:-5}
+      - APIFY_TIMEOUT_S=${APIFY_TIMEOUT_S:-20}
+      - APIFY_CACHE_TTL_S=${APIFY_CACHE_TTL_S:-600}
       - APIFY_GOOGLE_SEARCH_ACTOR=${APIFY_GOOGLE_SEARCH_ACTOR:-apify/google-search-scraper}
       - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-apify/google-news-scraper}
       - APIFY_REDDIT_ACTOR=${APIFY_REDDIT_ACTOR:-trudax/reddit-scraper}
@@ -254,6 +262,8 @@ services:
       - APIFY_ENABLED=${APIFY_ENABLED:-false}
       - APIFY_API_TOKEN=${APIFY_API_TOKEN:-}
       - APIFY_MAX_ITEMS=${APIFY_MAX_ITEMS:-5}
+      - APIFY_TIMEOUT_S=${APIFY_TIMEOUT_S:-20}
+      - APIFY_CACHE_TTL_S=${APIFY_CACHE_TTL_S:-600}
       - APIFY_GOOGLE_SEARCH_ACTOR=${APIFY_GOOGLE_SEARCH_ACTOR:-apify/google-search-scraper}
       - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-apify/google-news-scraper}
       - APIFY_REDDIT_ACTOR=${APIFY_REDDIT_ACTOR:-trudax/reddit-scraper}
@@ -308,6 +318,8 @@ services:
       - APIFY_ENABLED=${APIFY_ENABLED:-false}
       - APIFY_API_TOKEN=${APIFY_API_TOKEN:-}
       - APIFY_MAX_ITEMS=${APIFY_MAX_ITEMS:-5}
+      - APIFY_TIMEOUT_S=${APIFY_TIMEOUT_S:-20}
+      - APIFY_CACHE_TTL_S=${APIFY_CACHE_TTL_S:-600}
       - APIFY_GOOGLE_SEARCH_ACTOR=${APIFY_GOOGLE_SEARCH_ACTOR:-apify/google-search-scraper}
       - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-apify/google-news-scraper}
       - APIFY_REDDIT_ACTOR=${APIFY_REDDIT_ACTOR:-trudax/reddit-scraper}
@@ -362,6 +374,8 @@ services:
       - APIFY_ENABLED=${APIFY_ENABLED:-false}
       - APIFY_API_TOKEN=${APIFY_API_TOKEN:-}
       - APIFY_MAX_ITEMS=${APIFY_MAX_ITEMS:-5}
+      - APIFY_TIMEOUT_S=${APIFY_TIMEOUT_S:-20}
+      - APIFY_CACHE_TTL_S=${APIFY_CACHE_TTL_S:-600}
       - APIFY_GOOGLE_SEARCH_ACTOR=${APIFY_GOOGLE_SEARCH_ACTOR:-apify/google-search-scraper}
       - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-apify/google-news-scraper}
       - APIFY_REDDIT_ACTOR=${APIFY_REDDIT_ACTOR:-trudax/reddit-scraper}
@@ -416,6 +430,8 @@ services:
       - APIFY_ENABLED=${APIFY_ENABLED:-false}
       - APIFY_API_TOKEN=${APIFY_API_TOKEN:-}
       - APIFY_MAX_ITEMS=${APIFY_MAX_ITEMS:-5}
+      - APIFY_TIMEOUT_S=${APIFY_TIMEOUT_S:-20}
+      - APIFY_CACHE_TTL_S=${APIFY_CACHE_TTL_S:-600}
       - APIFY_GOOGLE_SEARCH_ACTOR=${APIFY_GOOGLE_SEARCH_ACTOR:-apify/google-search-scraper}
       - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-apify/google-news-scraper}
       - APIFY_REDDIT_ACTOR=${APIFY_REDDIT_ACTOR:-trudax/reddit-scraper}
@@ -470,6 +486,8 @@ services:
       - APIFY_ENABLED=${APIFY_ENABLED:-false}
       - APIFY_API_TOKEN=${APIFY_API_TOKEN:-}
       - APIFY_MAX_ITEMS=${APIFY_MAX_ITEMS:-5}
+      - APIFY_TIMEOUT_S=${APIFY_TIMEOUT_S:-20}
+      - APIFY_CACHE_TTL_S=${APIFY_CACHE_TTL_S:-600}
       - APIFY_GOOGLE_SEARCH_ACTOR=${APIFY_GOOGLE_SEARCH_ACTOR:-apify/google-search-scraper}
       - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-apify/google-news-scraper}
       - APIFY_REDDIT_ACTOR=${APIFY_REDDIT_ACTOR:-trudax/reddit-scraper}

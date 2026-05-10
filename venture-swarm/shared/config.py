@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     apify_enabled: bool = False
     apify_api_token: str | None = None
     apify_max_items: int = 5
+    apify_timeout_s: int = 20
+    apify_cache_ttl_s: int = 600
     apify_google_search_actor: str = "apify/google-search-scraper"
     apify_google_news_actor: str = "apify/google-news-scraper"
     apify_reddit_actor: str = "trudax/reddit-scraper"

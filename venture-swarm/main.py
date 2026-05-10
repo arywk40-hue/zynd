@@ -124,6 +124,51 @@ async def index() -> str:
       cursor: pointer;
     }
     button:disabled { opacity: 0.62; cursor: wait; }
+    .preset-grid,
+    .report-actions {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .preset-grid {
+      grid-template-columns: 1fr;
+    }
+    .preset-grid button,
+    .report-actions button {
+      margin: 0;
+      border: 1px solid rgba(216, 228, 222, 0.16);
+      background: #1d262b;
+      color: #dfe9e4;
+      text-align: left;
+      font-size: 0.82rem;
+      line-height: 1.25;
+    }
+    .report-actions {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .report-actions button {
+      text-align: center;
+    }
+    .progress {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .progress-step {
+      border: 1px solid rgba(216, 228, 222, 0.14);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      color: #91a39b;
+      padding: 8px;
+      font-size: 0.74rem;
+      text-align: center;
+    }
+    .progress-step.is-active {
+      color: #f3fbf6;
+      border-color: rgba(82, 210, 169, 0.7);
+      background: rgba(36, 160, 127, 0.16);
+    }
     .loop-panel {
       margin-top: 18px;
       padding-top: 16px;
@@ -418,12 +463,61 @@ async def index() -> str:
       line-height: 1.35;
     }
     .advanced-card li + li { margin-top: 5px; }
+    .source-panel {
+      margin-top: 14px;
+      border: 1px solid rgba(217, 228, 222, 0.14);
+      border-radius: 8px;
+      background: rgba(15, 19, 22, 0.82);
+      padding: 12px;
+    }
+    .source-panel h3 {
+      margin: 0 0 10px;
+      font-size: 0.95rem;
+    }
+    .source-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .source-card {
+      border: 1px solid rgba(217, 228, 222, 0.14);
+      border-radius: 8px;
+      padding: 10px;
+      background: rgba(13, 17, 19, 0.78);
+      min-width: 0;
+    }
+    .source-card a,
+    .source-card strong {
+      color: #8ddfc3;
+      text-decoration: none;
+      overflow-wrap: anywhere;
+      font-weight: 700;
+      font-size: 0.84rem;
+    }
+    .source-card p {
+      color: #b9c8c1;
+      font-size: 0.8rem;
+      line-height: 1.35;
+      margin: 7px 0 0;
+    }
+    .warning-list {
+      margin-top: 14px;
+      border-left: 4px solid #ffb45f;
+      padding: 10px 12px;
+      background: rgba(255, 180, 95, 0.08);
+      border-radius: 8px;
+      color: #f3ded0;
+      font-size: 0.84rem;
+      line-height: 1.35;
+    }
     .muted { color: #98aaa2; font-size: 0.82rem; }
     @media (max-width: 820px) {
       header { align-items: start; flex-direction: column; }
       .status { justify-content: flex-start; }
       .grid { grid-template-columns: 1fr; }
       .advanced-grid { grid-template-columns: 1fr; }
+      .source-grid { grid-template-columns: 1fr; }
+      .progress { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .map-shell { min-height: 1120px; }
       .map-graph {
         transform: none !important;
@@ -459,7 +553,13 @@ async def index() -> str:
         <h2>Startup Query</h2>
         <label for="query">Ask the swarm for a startup opportunity report.</label>
         <textarea id="query">Find a startup opportunity in rural healthcare diagnostics using AI for India and emerging markets.</textarea>
+        <div class="preset-grid" id="presets"></div>
         <button id="run" type="button">Run Report</button>
+        <div class="progress" id="progress"></div>
+        <div class="report-actions">
+          <button id="copySummary" type="button" disabled>Copy Summary</button>
+          <button id="downloadReport" type="button" disabled>Download JSON</button>
+        </div>
         <div class="agents" id="agents"></div>
         <div class="loop-panel">
           <h3>Agentic Loop</h3>
@@ -488,6 +588,7 @@ async def index() -> str:
           <pre id="output">Waiting for a query...</pre>
         </details>
         <div class="advanced-grid" id="advancedOutput"></div>
+        <div class="source-panel" id="sourcePanel"></div>
       </section>
     </div>
   </main>
@@ -504,8 +605,13 @@ async def index() -> str:
     const inspectorEl = document.getElementById("inspector");
     const outputEl = document.getElementById("output");
     const advancedOutputEl = document.getElementById("advancedOutput");
+    const sourcePanelEl = document.getElementById("sourcePanel");
     const runEl = document.getElementById("run");
     const queryEl = document.getElementById("query");
+    const presetsEl = document.getElementById("presets");
+    const progressEl = document.getElementById("progress");
+    const copySummaryEl = document.getElementById("copySummary");
+    const downloadReportEl = document.getElementById("downloadReport");
     const zoomOutEl = document.getElementById("zoomOut");
     const zoomInEl = document.getElementById("zoomIn");
     const resetMapEl = document.getElementById("resetMap");
@@ -515,10 +621,104 @@ async def index() -> str:
     let loopPrompts = {};
     let loopHistory = [];
     let actionCounts = {};
+    let lastReport = null;
     const collapsedBranches = {};
+    const progressSteps = ["Planning", "Discovery", "Dispatch", "Aggregation"];
+    const demoPresets = [
+      "AI-powered diagnostics for rural healthcare in India and Southeast Asia",
+      "B2B SaaS for construction site safety monitoring using computer vision",
+      "Embedded finance for gig economy workers in Latin America",
+    ];
 
     function renderJSON(value) {
       outputEl.textContent = JSON.stringify(value, null, 2);
+    }
+
+    function renderProgress(activeIndex = -1) {
+      progressEl.innerHTML = progressSteps.map((step, index) => `
+        <div class="progress-step ${index <= activeIndex ? "is-active" : ""}">${escapeHTML(step)}</div>
+      `).join("");
+    }
+
+    function renderPresets() {
+      presetsEl.innerHTML = demoPresets.map((preset) =>
+        `<button type="button" data-preset="${escapeHTML(preset)}">${escapeHTML(preset)}</button>`
+      ).join("");
+    }
+
+    function setReportActionsEnabled(enabled) {
+      copySummaryEl.disabled = !enabled;
+      downloadReportEl.disabled = !enabled;
+    }
+
+    function sourceFromText(text) {
+      const match = String(text || "").match(new RegExp("https?://[^\\\\s)]+"));
+      return match ? match[0] : "";
+    }
+
+    function extractSources(report) {
+      const buckets = [
+        ["Trends", report.trends],
+        ["Funding", report.funding_signals],
+        ["Competitors", report.competitors],
+        ["Benchmarks", report.benchmarking_comps],
+        ["Comparisons", report.startup_comparisons],
+        ["Market Gaps", report.market_gaps],
+        ["Financial", report.financial_signals],
+        ["Risks", report.risks],
+      ];
+      const seen = new Set();
+      const sources = [];
+      for (const [group, items] of buckets) {
+        for (const item of items || []) {
+          const url = item.source_url || item.url || sourceFromText(item.evidence || item.funding_signal || item.funding_snapshot || item.comparison_takeaway);
+          const title = item.source || item.trend || item.signal || item.risk || item.gap || item.startup || item.similar_startup || group;
+          const evidence = item.evidence || item.why_it_matters || item.impact || item.comparison_takeaway || item.value_prop || item.funding_snapshot || "";
+          const key = `${url || title}`.toLowerCase();
+          if (!key || seen.has(key)) continue;
+          seen.add(key);
+          sources.push({group, title: shorten(title, 90), url, evidence: shorten(evidence, 160)});
+        }
+      }
+      return sources.slice(0, 8);
+    }
+
+    function renderSources(report) {
+      const sources = extractSources(report);
+      const trace = report.agent_trace || [];
+      const warnings = trace
+        .filter((item) => Number(item.failovers || 0) > 0 || item.agent_status === "unavailable")
+        .map((item) => `${item.capability}: ${item.failovers || 0} failover(s), ${item.agent || item.agent_id}`);
+
+      const warningHTML = warnings.length
+        ? `<div class="warning-list"><strong>Recovery events</strong><br>${warnings.map(escapeHTML).join("<br>")}</div>`
+        : "";
+
+      const sourceHTML = sources.length
+        ? `<div class="source-grid">${sources.map((source) => `
+            <article class="source-card">
+              ${source.url
+                ? `<a href="${escapeHTML(source.url)}" target="_blank" rel="noreferrer">${escapeHTML(source.title)}</a>`
+                : `<strong>${escapeHTML(source.title)}</strong>`}
+              <p>${escapeHTML(source.group)}${source.evidence ? ` - ${escapeHTML(source.evidence)}` : ""}</p>
+            </article>
+          `).join("")}</div>`
+        : `<p class="muted">No source URLs were returned yet. Enable Apify plus an LLM for grounded evidence.</p>`;
+
+      sourcePanelEl.innerHTML = `<h3>Sources & Recovery</h3>${sourceHTML}${warningHTML}`;
+    }
+
+    function reportSummary(report) {
+      const scorecard = report.scorecard || {};
+      const trajectory = report.funding_trajectory || {};
+      return [
+        `VentureSwarm report: ${report.top_opportunity?.name || "Startup opportunity"}`,
+        `Score: ${report.opportunity_score ?? "n/a"} / 10`,
+        `Market: ${report.market_saturation || "unknown"} saturation; ${report.execution_difficulty || "unknown"} execution`,
+        `Monetization: ${report.monetization_potential || "unknown"}`,
+        `Scorecard: overall ${scorecard.overall_score ?? "n/a"}, momentum ${scorecard.momentum_score ?? "n/a"}, moat ${scorecard.moat_score ?? "n/a"}`,
+        `Funding: ${trajectory.trend_direction || "unknown"} trend, ${trajectory.investor_quality || "unknown"} investor quality`,
+      ].join("\\n");
     }
 
     function firstText(items, keys, fallback) {
@@ -695,10 +895,13 @@ async def index() -> str:
     }
 
     function renderBranchMap(report) {
+      lastReport = report;
       currentMap = buildMindMap(report);
       selectedBranch = currentMap.branches[0]?.id || "profit";
       renderMindMap();
       renderAdvancedOutput(report);
+      renderSources(report);
+      setReportActionsEnabled(true);
     }
 
     function renderMindMap() {
@@ -774,6 +977,8 @@ async def index() -> str:
       loopActionsEl.innerHTML = "";
       ideaOptionsEl.innerHTML = "";
       advancedOutputEl.innerHTML = "";
+      sourcePanelEl.innerHTML = "";
+      setReportActionsEnabled(false);
     }
 
     function cardHTML(title, values) {
@@ -1037,7 +1242,9 @@ async def index() -> str:
       if (!preserveLoop) {
         resetLoopMemory();
       }
+      lastReport = null;
       runEl.disabled = true;
+      setReportActionsEnabled(false);
       loopActionsEl.querySelectorAll("button").forEach((button) => {
         button.disabled = true;
       });
@@ -1046,13 +1253,23 @@ async def index() -> str:
       });
       renderEmptyMap("Running distributed report...");
       outputEl.textContent = "Running distributed report...";
+      renderProgress(0);
+      let progressIndex = 0;
+      const progressTimer = window.setInterval(() => {
+        progressIndex = Math.min(progressIndex + 1, progressSteps.length - 1);
+        renderProgress(progressIndex);
+      }, 900);
       try {
         const response = await fetch("/report", {
           method: "POST",
           headers: {"content-type": "application/json"},
           body: JSON.stringify({query: queryEl.value})
         });
+        if (!response.ok) {
+          throw new Error(`Report failed with HTTP ${response.status}`);
+        }
         const payload = await response.json();
+        renderProgress(progressSteps.length - 1);
         renderBranchMap(payload);
         renderJSON(payload);
         await refreshNetwork();
@@ -1060,6 +1277,7 @@ async def index() -> str:
         renderEmptyMap(String(error));
         outputEl.textContent = String(error);
       } finally {
+        window.clearInterval(progressTimer);
         runEl.disabled = false;
       }
     }
@@ -1101,6 +1319,33 @@ async def index() -> str:
       continueLoop(button.dataset.loopId);
     });
 
+    presetsEl.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-preset]");
+      if (!button) return;
+      queryEl.value = button.dataset.preset;
+      resetLoopMemory();
+    });
+
+    copySummaryEl.addEventListener("click", async () => {
+      if (!lastReport) return;
+      await navigator.clipboard.writeText(reportSummary(lastReport));
+      copySummaryEl.textContent = "Copied";
+      window.setTimeout(() => {
+        copySummaryEl.textContent = "Copy Summary";
+      }, 1200);
+    });
+
+    downloadReportEl.addEventListener("click", () => {
+      if (!lastReport) return;
+      const blob = new Blob([JSON.stringify(lastReport, null, 2)], {type: "application/json"});
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "venture-swarm-report.json";
+      link.click();
+      URL.revokeObjectURL(url);
+    });
+
     zoomOutEl.addEventListener("click", () => {
       mapScale = Math.max(0.78, Number((mapScale - 0.08).toFixed(2)));
       renderMindMap();
@@ -1118,6 +1363,8 @@ async def index() -> str:
 
     runEl.addEventListener("click", runReport);
     window.addEventListener("resize", drawConnectors);
+    renderPresets();
+    renderProgress(-1);
     renderEmptyMap("Waiting for a query...");
     refreshNetwork().catch((error) => {
       healthEl.textContent = "health: unavailable";

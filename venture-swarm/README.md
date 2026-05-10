@@ -102,7 +102,8 @@ venture-swarm/
 │   ├── zynd_runtime.py
 │   └── config.py
 ├── docs/
-│   └── advanced-implementation-prompts.md
+│   ├── advanced-implementation-prompts.md
+│   └── zns-deployment.md
 ├── .env.example
 ├── requirements.txt
 ├── docker-compose.yml
@@ -372,6 +373,8 @@ Optional Apify grounding secrets:
 APIFY_ENABLED=true
 APIFY_API_TOKEN=<secret>
 APIFY_MAX_ITEMS=5
+APIFY_TIMEOUT_S=20
+APIFY_CACHE_TTL_S=600
 ```
 
 For the Hugging Face live app, premium gates default off so the report works without funded testnet wallets:
@@ -396,6 +399,36 @@ Notes:
 - Hugging Face Space mode is a single-container live deployment. It preserves runtime discovery, local registry heartbeat, webhooks, agent cards, and agent-to-agent calls inside the Space.
 - Agent identities and x402 wallet addresses may rotate on Space rebuilds unless persistent storage is enabled for the Space.
 - For truly public inter-agent webhooks across separate hosts, deploy each agent as its own public service or use the Zynd deployer path.
+
+### ZNS Deployment
+
+For public ZNS discovery, every agent needs a stable public HTTPS URL. Internal Docker hostnames such as `http://funding-agent:8102` are only for local Compose.
+
+Use the public Zynd registry and your namespace:
+
+```text
+ZYND_REGISTRY_URL=https://zns01.zynd.ai
+DIRECTORY_URL=https://zns01.zynd.ai
+ZNS_ROOT=zns01.zynd.ai
+ZNS_DEVELOPER_HANDLE=venture-swarm
+```
+
+Deploy each agent as an independently reachable service and set its `SERVICE_URL` to the public base URL:
+
+```text
+SERVICE_URL=https://<public-agent-host>
+```
+
+Each public service must respond at:
+
+```text
+/health
+/webhook
+/webhook/sync
+/.well-known/agent.json
+```
+
+Keep SDK key material persistent between deploys. If `.keys` rotates, ZNS identities and derived x402 wallets rotate too. A full checklist lives in `docs/zns-deployment.md`.
 
 ### Local
 
@@ -425,6 +458,8 @@ Optional Apify grounding:
 APIFY_ENABLED=true
 APIFY_API_TOKEN=apify_api_...
 APIFY_MAX_ITEMS=5
+APIFY_TIMEOUT_S=20
+APIFY_CACHE_TTL_S=600
 ```
 
 Optional Base Sepolia x402 setup:
