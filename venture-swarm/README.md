@@ -1,3 +1,10 @@
+---
+title: VentureSwarm
+sdk: docker
+app_port: 7860
+license: mit
+---
+
 # VentureSwarm
 
 Autonomous Startup Intelligence Swarm using the **real ZyndAI Agent SDK**.
@@ -308,6 +315,53 @@ The orchestrator `/health` response includes:
 cd venture-swarm
 docker compose up --build
 ```
+
+### Hugging Face Space
+
+VentureSwarm can run as a Docker Space. Hugging Face exposes one public app port, so `scripts/start_hf_space.sh` starts the local Zynd-compatible directory, all agents, and the public orchestrator UI inside one container. The public app listens on port `7860`.
+
+Create and upload a Docker Space:
+
+```bash
+hf auth login
+hf repos create <your-hf-username>/venture-swarm --type space --space-sdk docker --exist-ok
+hf upload <your-hf-username>/venture-swarm ./venture-swarm --type space
+```
+
+Set live LLM configuration in Hugging Face Space **Secrets** / **Variables**:
+
+```text
+LLM_PROVIDER=groq
+GROQ_API_KEY=<secret>
+GROQ_MODEL=llama-3.3-70b-versatile
+LLM_TIMEOUT_S=20
+LLM_MAX_ITEMS=5
+```
+
+Other supported providers are `openai`, `gemini`, `anthropic`, `mistral`, and `cerebras`. Put API keys in Space secrets, not in `.env` or README.
+
+For the Hugging Face live app, premium gates default off so the report works without funded testnet wallets:
+
+```text
+FUNDING_PREMIUM_REQUIRED=false
+BENCHMARK_PREMIUM_REQUIRED=false
+X402_ENABLED=false
+```
+
+Turn x402 back on only after funding the SDK-derived Base Sepolia wallets:
+
+```text
+X402_ENABLED=true
+FUNDING_PREMIUM_REQUIRED=true
+BENCHMARK_PREMIUM_REQUIRED=true
+```
+
+Notes:
+
+- Docker Compose remains the best local distributed development mode.
+- Hugging Face Space mode is a single-container live deployment. It preserves runtime discovery, local registry heartbeat, webhooks, agent cards, and agent-to-agent calls inside the Space.
+- Agent identities and x402 wallet addresses may rotate on Space rebuilds unless persistent storage is enabled for the Space.
+- For truly public inter-agent webhooks across separate hosts, deploy each agent as its own public service or use the Zynd deployer path.
 
 ### Local
 

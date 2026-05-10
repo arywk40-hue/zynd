@@ -1,5 +1,4 @@
 .env
-.git/
 .keys/
 .agent-*/
 .well-known/
@@ -7,4 +6,3 @@
 __pycache__/
 *.py[cod]
 .DS_Store
-docs/screenshots/
