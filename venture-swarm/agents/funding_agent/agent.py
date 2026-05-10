@@ -137,7 +137,7 @@ def _install_x402_middleware() -> None:
         from x402.http.types import PaymentOption, RouteConfig
         from x402.mechanisms.evm.exact import register_exact_evm_server
     except Exception as e:  # noqa: BLE001
-        log.error("\\[x402] Payment middleware unavailable: %s", e)
+        log.error("[x402] Payment middleware unavailable: %s", e)
         return
 
     facilitator = HTTPFacilitatorClient(FacilitatorConfig(url=settings.x402_facilitator_url))
@@ -171,17 +171,17 @@ def _install_x402_middleware() -> None:
         if not protected or not _premium_required():
             return await call_next(request)
 
-        log.warning("\\[x402] premium-funding-agent requires payment")
-        log.info("\\[x402] Processing %s USDC payment...", settings.x402_network_name)
+        log.warning("[x402] premium-funding-agent requires payment")
+        log.info("[x402] Processing %s USDC payment...", settings.x402_network_name)
         response = await middleware(request, call_next)
         if response.status_code == 402:
-            log.warning("\\[x402] Payment required or settlement failed")
+            log.warning("[x402] Payment required or settlement failed")
         elif getattr(request.state, "payment_payload", None) is not None:
-            log.info("\\[x402] Payment successful")
+            log.info("[x402] Payment successful")
             log.info("[Dispatch] premium-funding-agent executing analysis")
         return response
 
-    log.info("\\[x402] Base Sepolia payment middleware enabled for premium-funding-agent")
+    log.info("[x402] Base Sepolia payment middleware enabled for premium-funding-agent")
 
 
 _install_x402_middleware()

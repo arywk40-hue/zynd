@@ -133,6 +133,7 @@ def aggregate(
 
     trend_strength = _average_confidence(trend.data)
     funding_strength = _average_confidence(funding.data)
+    financial_strength = _average_confidence(financial_signals.data, default=funding_strength)
     gap_strength = _average_confidence(market_gaps.data)
     comparison_strength = _average_confidence(startup_comparisons.data)
 
@@ -207,6 +208,7 @@ def aggregate(
         funding_signals=funding.data,
         funding_trajectory=_funding_trajectory(funding.data),
         competitors=competitors.data,
+        benchmarking_comps=benchmarking.data,
         startup_comparisons=startup_comparisons.data,
         market_gaps=market_gaps.data,
         financial_signals=financial_signals.data,

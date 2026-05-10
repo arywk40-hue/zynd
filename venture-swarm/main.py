@@ -394,11 +394,36 @@ async def index() -> str:
       border-top: 1px solid rgba(232, 240, 236, 0.1);
       font-size: 0.9rem;
     }
+    .advanced-grid {
+      margin-top: 14px;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .advanced-card {
+      border: 1px solid rgba(217, 228, 222, 0.14);
+      border-radius: 8px;
+      padding: 10px;
+      background: rgba(15, 19, 22, 0.82);
+    }
+    .advanced-card h3 {
+      margin: 0 0 8px;
+      font-size: 0.9rem;
+    }
+    .advanced-card ul {
+      margin: 0;
+      padding-left: 18px;
+      color: #c4d1cb;
+      font-size: 0.82rem;
+      line-height: 1.35;
+    }
+    .advanced-card li + li { margin-top: 5px; }
     .muted { color: #98aaa2; font-size: 0.82rem; }
     @media (max-width: 820px) {
       header { align-items: start; flex-direction: column; }
       .status { justify-content: flex-start; }
       .grid { grid-template-columns: 1fr; }
+      .advanced-grid { grid-template-columns: 1fr; }
       .map-shell { min-height: 910px; }
       .map-graph {
         transform: none !important;
@@ -462,6 +487,7 @@ async def index() -> str:
           <summary>Raw Agent Report</summary>
           <pre id="output">Waiting for a query...</pre>
         </details>
+        <div class="advanced-grid" id="advancedOutput"></div>
       </section>
     </div>
   </main>
@@ -477,6 +503,7 @@ async def index() -> str:
     const connectorsEl = document.getElementById("connectors");
     const inspectorEl = document.getElementById("inspector");
     const outputEl = document.getElementById("output");
+    const advancedOutputEl = document.getElementById("advancedOutput");
     const runEl = document.getElementById("run");
     const queryEl = document.getElementById("query");
     const zoomOutEl = document.getElementById("zoomOut");
@@ -567,14 +594,23 @@ async def index() -> str:
         `Execution difficulty: ${report.execution_difficulty || "Unknown"}`,
         `Highest visible risk: ${firstText(report.risks, ["severity"], "Unknown")}`
       ];
-      const comparisons = uniqueValues((report.startup_comparisons || []).map((item) => {
-        const name = item.similar_startup || item.company || item.name || "Comparable startup";
-        const funding = item.funding_signal ? `funding: ${item.funding_signal}` : "";
-        const profit = item.profit_signal ? `profit: ${item.profit_signal}` : "";
-        const loss = item.loss_signal ? `loss: ${item.loss_signal}` : "";
-        const takeaway = item.comparison_takeaway || item.traction_signal || "";
-        return [name, funding, profit, loss, takeaway].filter(Boolean).join(" | ");
-      }));
+      const comparisons = uniqueValues([
+        ...(report.benchmarking_comps || []).map((item) => {
+          const name = item.company || item.name || item.startup || "Benchmark startup";
+          const stage = item.stage ? `stage: ${item.stage}` : "";
+          const fit = item.similarity || item.fit || item.score ? `fit: ${item.similarity || item.fit || item.score}` : "";
+          const takeaway = item.note || item.takeaway || item.financial_overlay || "";
+          return [name, stage, fit, takeaway].filter(Boolean).join(" | ");
+        }),
+        ...(report.startup_comparisons || []).map((item) => {
+          const name = item.similar_startup || item.company || item.name || "Comparable startup";
+          const funding = item.funding_signal ? `funding: ${item.funding_signal}` : "";
+          const profit = item.profit_signal ? `profit: ${item.profit_signal}` : "";
+          const loss = item.loss_signal ? `loss: ${item.loss_signal}` : "";
+          const takeaway = item.comparison_takeaway || item.traction_signal || "";
+          return [name, funding, profit, loss, takeaway].filter(Boolean).join(" | ");
+        }),
+      ]);
 
       return {
         idea: idea.name || "No opportunity selected yet",
@@ -644,6 +680,7 @@ async def index() -> str:
       currentMap = buildMindMap(report);
       selectedBranch = currentMap.branches[0]?.id || "profit";
       renderMindMap();
+      renderAdvancedOutput(report);
     }
 
     function renderMindMap() {
@@ -718,6 +755,59 @@ async def index() -> str:
       loopPromptEl.textContent = "Waiting for the first startup map.";
       loopActionsEl.innerHTML = "";
       ideaOptionsEl.innerHTML = "";
+      advancedOutputEl.innerHTML = "";
+    }
+
+    function cardHTML(title, values) {
+      return `
+        <article class="advanced-card">
+          <h3>${escapeHTML(title)}</h3>
+          ${listHTML((values || []).slice(0, 4))}
+        </article>
+      `;
+    }
+
+    function renderAdvancedOutput(report) {
+      const scorecard = report.scorecard || {};
+      const trajectory = report.funding_trajectory || {};
+      const forecast = scorecard.outcome_forecast || {};
+      const scoreLines = [
+        `overall: ${scorecard.overall_score ?? "n/a"}`,
+        `momentum: ${scorecard.momentum_score ?? "n/a"}`,
+        `moat: ${scorecard.moat_score ?? "n/a"}`,
+        `financial health: ${scorecard.financial_health_score ?? "n/a"}`,
+        `founder fit: ${scorecard.founder_fit_score ?? "n/a"}`,
+      ];
+      const trajectoryLines = [
+        `round progression: ${trajectory.round_progression || "Unknown"}`,
+        `trend: ${trajectory.trend_direction || "Unknown"}`,
+        `valuation: ${trajectory.valuation_direction || "Unknown"}`,
+        `investor quality: ${trajectory.investor_quality || "Unknown"}`,
+      ];
+      const forecastLines = [
+        `breakout: ${forecast.breakout ?? "n/a"}`,
+        `steady: ${forecast.steady ?? "n/a"}`,
+        `stall: ${forecast.stall ?? "n/a"}`,
+      ];
+      const financialLines = (report.financial_signals || []).map((item) =>
+        [item.signal, item.metric, item.summary, item.why_it_matters].filter(Boolean).join(" | ")
+      );
+      const benchmarkLines = (report.benchmarking_comps || []).map((item) =>
+        [item.company || item.name || item.startup, item.stage, item.similarity || item.fit, item.financial_overlay].filter(Boolean).join(" | ")
+      );
+      advancedOutputEl.innerHTML = [
+        cardHTML("Scorecard", scoreLines),
+        cardHTML("Outcome Forecast", forecastLines),
+        cardHTML("Funding Trajectory", trajectoryLines),
+        cardHTML("Financial Signals", financialLines.length ? financialLines : ["No financial signals available"]),
+        cardHTML("Benchmarking Comp Set", benchmarkLines.length ? benchmarkLines : ["No benchmarking comps available"]),
+        cardHTML(
+          "Startup Comparisons",
+          (report.startup_comparisons || []).map((item) =>
+            [item.similar_startup || item.company || item.name, item.funding_signal, item.profit_signal, item.loss_signal].filter(Boolean).join(" | ")
+          ),
+        ),
+      ].join("");
     }
 
     function renderInspector() {
