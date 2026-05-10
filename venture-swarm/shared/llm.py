@@ -164,6 +164,7 @@ def generate_structured_items(
 
 
 def _call_with_retries(*, provider: str, capability: str, call: Callable[[], str]) -> str:
+    """Run a provider call with exponential backoff on HTTP 429/503 responses."""
     for attempt in range(_MAX_LLM_RETRIES + 1):
         try:
             return call()
