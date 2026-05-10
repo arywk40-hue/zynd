@@ -193,7 +193,6 @@ def _call_with_retries(*, provider: str, capability: str, call: Callable[[], str
             if not is_retryable or retry_index >= _MAX_LLM_RETRIES:
                 raise
 
-    raise RuntimeError("Retry loop exhausted unexpectedly")
 
 
 def _build_prompt(
