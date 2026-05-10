@@ -250,16 +250,7 @@ class VentureSwarmOrchestrator:
         ]
 
         responses = {d.response.capability: d.response for d in dispatches}
-        required_capabilities = [
-            "trend-analysis",
-            "funding-analysis",
-            "benchmarking-analysis",
-            "competitor-analysis",
-            "startup-comparison",
-            "market-gap-analysis",
-            "financial-signal-analysis",
-            "risk-analysis",
-        ]
+        required_capabilities = [task.capability for task in tasks.tasks]
 
         for capability in required_capabilities:
             if capability in responses:

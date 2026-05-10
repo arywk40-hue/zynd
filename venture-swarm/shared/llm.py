@@ -174,12 +174,12 @@ def _call_with_retries(*, provider: str, capability: str, call: Callable[[], str
                 raise
             delay_s = _RETRY_BASE_DELAY_S * (2**attempt)
             log.warning(
-                "[LLM] %s %s failed with HTTP %s (attempt %d/%d); retrying in %.1fs",
+                "[LLM] %s %s failed with HTTP %s (retry %d/%d); retrying in %.1fs",
                 provider,
                 capability,
                 status_code,
                 attempt + 1,
-                _MAX_LLM_RETRIES + 1,
+                _MAX_LLM_RETRIES,
                 delay_s,
             )
             time.sleep(delay_s)
