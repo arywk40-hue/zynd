@@ -9,6 +9,7 @@ from fastapi import BackgroundTasks, FastAPI
 from zyndai_agent.agent import ZyndAIAgent
 
 from agents.market_gap_agent.prompts import SYSTEM_PROMPT
+from agents.market_gap_agent.seeds import SEED_ITEMS
 from shared.config import get_settings
 from shared.llm import build_llm_data_factory
 from shared.schemas import AgentTaskResponse
@@ -49,6 +50,7 @@ _build_data = build_llm_data_factory(
     settings=settings,
     capability="market-gap-analysis",
     system_prompt=SYSTEM_PROMPT,
+    seed_items=SEED_ITEMS,
 )
 
 

@@ -5,8 +5,8 @@ import os
 import sys
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import HTMLResponse, StreamingResponse
 
 from orchestrator.orchestrator_agent import VentureSwarmOrchestrator
 from shared.config import get_settings
@@ -624,6 +624,7 @@ async def index() -> str:
     let lastReport = null;
     const collapsedBranches = {};
     const progressSteps = ["Planning", "Discovery", "Dispatch", "Aggregation"];
+    const reportHistoryKey = "ventureSwarmReports";
     const demoPresets = [
       "AI-powered diagnostics for rural healthcare in India and Southeast Asia",
       "B2B SaaS for construction site safety monitoring using computer vision",
@@ -649,6 +650,31 @@ async def index() -> str:
     function setReportActionsEnabled(enabled) {
       copySummaryEl.disabled = !enabled;
       downloadReportEl.disabled = !enabled;
+    }
+
+    function browserStorage() {
+      if (window.storage && typeof window.storage.getItem === "function") return window.storage;
+      return window.localStorage;
+    }
+
+    function loadReportHistory() {
+      try {
+        const parsed = JSON.parse(browserStorage().getItem(reportHistoryKey) || "[]");
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (_error) {
+        return [];
+      }
+    }
+
+    function saveReportHistory(report) {
+      const history = loadReportHistory();
+      const next = [{saved_at: new Date().toISOString(), report}, ...history]
+        .slice(0, 5)
+        .map((entry) => ({
+          saved_at: entry.saved_at,
+          report: entry.report,
+        }));
+      browserStorage().setItem(reportHistoryKey, JSON.stringify(next));
     }
 
     function sourceFromText(text) {
@@ -705,9 +731,21 @@ async def index() -> str:
       const warnings = trace
         .filter((item) => Number(item.failovers || 0) > 0 || item.agent_status === "unavailable")
         .map((item) => `${item.capability}: ${item.failovers || 0} failover(s), ${item.agent || item.agent_id}`);
+      const collaboration = trace
+        .flatMap((item) => item.collaboration_trace || [])
+        .filter(Boolean);
+      const savedReports = loadReportHistory();
 
       const warningHTML = warnings.length
         ? `<div class="warning-list"><strong>Recovery events</strong><br>${warnings.map(escapeHTML).join("<br>")}</div>`
+        : "";
+      const collaborationHTML = collaboration.length
+        ? `<div class="warning-list"><strong>Agent collaboration trace</strong><br>${collaboration.map(escapeHTML).join("<br>")}</div>`
+        : "";
+      const savedReportsHTML = savedReports.length
+        ? `<div class="warning-list"><strong>Saved reports</strong><br>${savedReports
+            .map((entry) => `${escapeHTML(entry.saved_at)} - ${escapeHTML(entry.report?.top_opportunity?.name || "Startup opportunity")}`)
+            .join("<br>")}</div>`
         : "";
 
       const sourceHTML = sources.length
@@ -721,7 +759,7 @@ async def index() -> str:
           `).join("")}</div>`
         : `<p class="muted">No source URLs were returned yet. Enable Apify plus an LLM for grounded evidence.</p>`;
 
-      sourcePanelEl.innerHTML = `<h3>Sources & Recovery</h3>${sourceHTML}${warningHTML}`;
+      sourcePanelEl.innerHTML = `<h3>Sources & Recovery</h3>${sourceHTML}${warningHTML}${collaborationHTML}${savedReportsHTML}`;
     }
 
     function reportSummary(report) {
@@ -818,6 +856,7 @@ async def index() -> str:
         `Financial Health: ${scorecard.financial_health_score ?? "N/A"} / 10`,
         `Founder Fit: ${scorecard.founder_fit_score ?? "N/A"} / 10`,
         `Breakout probability: ${forecast.breakout ?? "N/A"}`,
+        scorecard.scorecard_narrative ? `Narrative: ${scorecard.scorecard_narrative}` : "Narrative: unavailable",
       ];
       const comparisons = uniqueValues([
         ...(report.benchmarking_comps || []).map((item) => {
@@ -1016,6 +1055,7 @@ async def index() -> str:
         `moat: ${scorecard.moat_score ?? "n/a"}`,
         `financial health: ${scorecard.financial_health_score ?? "n/a"}`,
         `founder fit: ${scorecard.founder_fit_score ?? "n/a"}`,
+        `narrative: ${scorecard.scorecard_narrative || "n/a"}`,
       ];
       const trajectoryLines = [
         `round progression: ${trajectory.round_progression || "Unknown"}`,
@@ -1046,6 +1086,7 @@ async def index() -> str:
             [item.similar_startup || item.company || item.name, item.funding_signal, item.profit_signal, item.loss_signal].filter(Boolean).join(" | ")
           ),
         ),
+        cardHTML("Monday Morning Next Steps", report.next_steps || []),
       ].join("");
     }
 
@@ -1414,6 +1455,33 @@ async def network() -> dict:
 async def report(req: StartupQuery) -> StartupReport:
     log.info("[Orchestrator] Received query: %s", req.query)
     return await orchestrator.run(req.query)
+
+
+@app.get("/report/stream")
+async def report_stream(query: str = Query(..., min_length=3, max_length=2000)) -> StreamingResponse:
+    try:
+        validated = StartupQuery(query=query)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    async def event_stream():
+        try:
+            async for event in orchestrator.run_stream(validated.query):
+                payload = json.dumps(event, ensure_ascii=False)
+                yield f"event: progress\ndata: {payload}\n\n"
+                if event.get("stage") == "aggregation" and event.get("status") == "complete":
+                    report_payload = json.dumps(event.get("report", {}), ensure_ascii=False)
+                    yield f"event: complete\ndata: {report_payload}\n\n"
+                    return
+        except Exception as e:  # noqa: BLE001
+            payload = json.dumps({"error": str(e)}, ensure_ascii=False)
+            yield f"event: error\ndata: {payload}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+    )
 
 
 def _cli() -> int:

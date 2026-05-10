@@ -123,6 +123,34 @@ def _scorecard_assumptions(
     return [assumption for assumption in assumptions if assumption]
 
 
+def _scorecard_narrative(
+    *,
+    opportunity_score: float,
+    momentum_score: float,
+    moat_score: float,
+    top_gap: dict,
+    top_risk: dict,
+) -> str:
+    gap = str(top_gap.get("gap") or _DEFAULT_GAP_ASSUMPTION).strip()
+    risk = str(top_risk.get("risk") or _DEFAULT_RISK_ASSUMPTION).strip()
+    return (
+        f"Score {opportunity_score:.2f}/10 is driven by momentum {momentum_score:.2f} and moat {moat_score:.2f}, "
+        f"with strongest upside in {gap.lower()} and primary drag from {risk.lower()}."
+    )
+
+
+def _next_steps(*, top_gap: dict, top_risk: dict) -> list[str]:
+    gap = str(top_gap.get("gap") or "the identified market gap").strip()
+    target_user = str(top_gap.get("target_user") or "the target user segment").strip()
+    risk = str(top_risk.get("risk") or "the primary execution risk").strip()
+    mitigation = str(top_risk.get("mitigation") or "define measurable mitigations and owners").strip()
+    return [
+        f"Run 8-10 interviews with {target_user} this week to validate willingness to pay for {gap.lower()}.",
+        f"Ship a narrow pilot focused on {gap.lower()} and track activation, retention, and expansion signals.",
+        f"Create a mitigation plan for {risk.lower()} with clear owners and milestones: {mitigation}.",
+    ]
+
+
 def aggregate(
     *,
     query: str,
@@ -207,6 +235,13 @@ def aggregate(
             top_funding=top_funding,
             top_risk=top_risk,
         ),
+        scorecard_narrative=_scorecard_narrative(
+            opportunity_score=opportunity_score,
+            momentum_score=momentum_score,
+            moat_score=moat_score,
+            top_gap=top_gap,
+            top_risk=top_risk,
+        ),
     )
 
     return StartupReport(
@@ -227,4 +262,5 @@ def aggregate(
         risks=risks.data,
         scorecard=scorecard,
         agent_trace=agent_trace,
+        next_steps=_next_steps(top_gap=top_gap, top_risk=top_risk),
     )

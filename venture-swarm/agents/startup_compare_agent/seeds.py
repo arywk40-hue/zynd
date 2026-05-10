@@ -1,0 +1,32 @@
+SEED_ITEMS = [
+    {
+        "similar_startup": "Brex",
+        "category": "B2B fintech workflows",
+        "funding_signal": "Raised quickly after proving strong early customer pull.",
+        "traction_signal": "Rapid adoption in a focused customer segment before broadening.",
+        "profit_signal": "Expansion revenue from upsells and adjacent workflows.",
+        "loss_signal": "High customer acquisition cost during early growth push.",
+        "comparison_takeaway": "Narrow initial ICP and strong product velocity improved fundraising narrative.",
+        "confidence": 0.74,
+    },
+    {
+        "similar_startup": "Gong",
+        "category": "Revenue intelligence",
+        "funding_signal": "Institutional confidence increased with measurable customer ROI.",
+        "traction_signal": "High retention and cross-team expansion in enterprise accounts.",
+        "profit_signal": "Pricing power improved as data depth increased.",
+        "loss_signal": "Long sales cycles in large accounts slowed initial scaling.",
+        "comparison_takeaway": "Proof of measurable outcomes helped convert pilots into durable contracts.",
+        "confidence": 0.78,
+    },
+    {
+        "similar_startup": "Carta",
+        "category": "Startup operations software",
+        "funding_signal": "Strong investor support during category formation stage.",
+        "traction_signal": "Embedded workflow utility drove recurring usage.",
+        "profit_signal": "Platform breadth created expansion pathways.",
+        "loss_signal": "Regulatory and trust incidents created reputational drag.",
+        "comparison_takeaway": "Operational trust and governance discipline are critical in workflow infrastructure.",
+        "confidence": 0.7,
+    },
+]

@@ -66,6 +66,7 @@ def build_llm_data_factory(
     settings: Settings,
     capability: str,
     system_prompt: str,
+    seed_items: list[dict[str, Any]] | None = None,
 ) -> Any:
     def _build_data(user_input: str) -> list[dict]:
         return generate_structured_items(
@@ -73,6 +74,7 @@ def build_llm_data_factory(
             capability=capability,
             system_prompt=system_prompt,
             user_input=user_input,
+            seed_items=seed_items,
         )
 
     return _build_data
@@ -84,6 +86,7 @@ def generate_structured_items(
     capability: str,
     system_prompt: str,
     user_input: str,
+    seed_items: list[dict[str, Any]] | None = None,
 ) -> list[dict]:
     provider = settings.llm_provider.strip().lower()
     required_fields = _REQUIRED_FIELDS.get(capability, [])
@@ -102,6 +105,10 @@ def generate_structured_items(
                 required_fields=required_fields,
                 max_items=settings.llm_max_items,
             )
+        if seed_items:
+            log.info("[LLM] No LLM configured; using static seed fallback for %s", capability)
+            normalized = [_normalize_item(item, required_fields) for item in seed_items if isinstance(item, dict)]
+            return normalized[: settings.llm_max_items]
         log.warning("[LLM] LLM_PROVIDER is not configured; %s returning no live items", capability)
         return []
 
@@ -176,6 +183,10 @@ def generate_structured_items(
         return items[: settings.llm_max_items]
     except Exception as e:  # noqa: BLE001
         log.error("[Error] %s LLM generation failed via %s: %s", capability, provider, e)
+        if seed_items:
+            log.info("[Recovery] Using static seed fallback for %s after live generation failure", capability)
+            normalized = [_normalize_item(item, required_fields) for item in seed_items if isinstance(item, dict)]
+            return normalized[: settings.llm_max_items]
         return []
 
 

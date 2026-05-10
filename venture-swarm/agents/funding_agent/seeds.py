@@ -1,0 +1,32 @@
+SEED_ITEMS = [
+    {
+        "signal": "Early-stage B2B AI remains fundable with clear wedge positioning.",
+        "round_progression": "Pre-seed to Seed momentum is healthy",
+        "trend_direction": "Up",
+        "valuation_direction": "Stable to up for top quartile teams",
+        "investor_quality": "Tier-2 and specialist seed funds active",
+        "why_it_matters": "Strong story and distribution proof can unlock competitive seed rounds.",
+        "who_pays_attention": "Seed funds, strategic angels, accelerator investors",
+        "confidence": 0.8,
+    },
+    {
+        "signal": "Investors scrutinize retention and expansion earlier than before.",
+        "round_progression": "Seed to Series A filters are tighter",
+        "trend_direction": "Selective",
+        "valuation_direction": "Flat unless growth efficiency is strong",
+        "investor_quality": "Quality investors prioritize execution metrics",
+        "why_it_matters": "Teams with weak engagement evidence face extended fundraising cycles.",
+        "who_pays_attention": "Institutional seed and Series A funds",
+        "confidence": 0.77,
+    },
+    {
+        "signal": "Capital available for AI infrastructure-light application startups.",
+        "round_progression": "Faster pre-seed closes for credible operator teams",
+        "trend_direction": "Up",
+        "valuation_direction": "Moderately positive",
+        "investor_quality": "Operator angels and micro-VCs remain active",
+        "why_it_matters": "Lean burn and fast iteration can improve fundraising velocity.",
+        "who_pays_attention": "Micro-VCs, angel syndicates, pre-seed funds",
+        "confidence": 0.75,
+    },
+]

@@ -116,6 +116,7 @@ class AgentTaskResponse(BaseModel):
     capability: str
     data: list[dict[str, Any]]
     notes: list[str] = Field(default_factory=list)
+    collaboration_trace: list[str] = Field(default_factory=list)
 
 
 class OpportunitySummary(BaseModel):
@@ -149,6 +150,7 @@ class InvestmentScorecard(BaseModel):
     go_to_market_risk: Literal["Low", "Medium", "High"]
     outcome_forecast: OutcomeForecast
     key_assumptions: list[str] = Field(default_factory=list)
+    scorecard_narrative: str | None = None
 
 
 class StartupReport(BaseModel):
@@ -169,3 +171,4 @@ class StartupReport(BaseModel):
     risks: list[dict[str, Any]] = Field(default_factory=list)
     scorecard: InvestmentScorecard | None = None
     agent_trace: list[dict[str, Any]] = Field(default_factory=list)
+    next_steps: list[str] = Field(default_factory=list)

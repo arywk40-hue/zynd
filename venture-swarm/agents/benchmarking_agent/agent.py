@@ -12,6 +12,7 @@ from zyndai_agent.agent import ZyndAIAgent
 from zyndai_agent.message import AgentMessage
 
 from agents.benchmarking_agent.prompts import SYSTEM_PROMPT
+from agents.benchmarking_agent.seeds import SEED_ITEMS
 from shared.config import get_settings
 from shared.llm import build_llm_data_factory
 from shared.schemas import AgentTaskResponse
@@ -78,6 +79,7 @@ _build_data = build_llm_data_factory(
     settings=settings,
     capability="benchmarking-analysis",
     system_prompt=SYSTEM_PROMPT,
+    seed_items=SEED_ITEMS,
 )
 
 
@@ -188,6 +190,7 @@ def _process(message: AgentMessage) -> AgentTaskResponse:
         "Uses configured LLM provider for live benchmarking reasoning when available.",
         "Merged financial overlays from collaborative agent requests.",
     ]
+    collaboration_trace: list[str] = []
     if overlay_summary:
         for item in data:
             if isinstance(item, dict):
@@ -195,6 +198,9 @@ def _process(message: AgentMessage) -> AgentTaskResponse:
         log.info("[Merge] Added financial overlays to benchmarking set")
     if overlay_agent:
         notes.append(f"Collaborated with {overlay_agent} for financial signals.")
+        collaboration_trace.append(
+            f"benchmarking-agent -> {overlay_agent}: requested financial overlays and merged them into benchmarking outputs."
+        )
 
     return AgentTaskResponse(
         task_id=task_id,
@@ -203,6 +209,7 @@ def _process(message: AgentMessage) -> AgentTaskResponse:
         capability="benchmarking-analysis",
         data=data,
         notes=notes,
+        collaboration_trace=collaboration_trace,
     )
 
 

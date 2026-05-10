@@ -1,0 +1,32 @@
+SEED_ITEMS = [
+    {
+        "startup": "Lattice",
+        "similarity_reason": "B2B workflow platform with clear manager-facing ROI narrative.",
+        "market": "People operations software",
+        "business_model": "SaaS subscription",
+        "stage": "Growth",
+        "gtm_motion": "Bottom-up expansion into multi-team enterprise accounts",
+        "funding_snapshot": "Raised multiple growth rounds after demonstrating retention and expansion.",
+        "confidence": 0.73,
+    },
+    {
+        "startup": "Ramp",
+        "similarity_reason": "Product-led entry with strong efficiency and automation messaging.",
+        "market": "Finance operations",
+        "business_model": "Usage plus platform monetization",
+        "stage": "Late-stage private",
+        "gtm_motion": "High-velocity outbound plus ecosystem partnerships",
+        "funding_snapshot": "Scaled funding alongside high customer adoption and clear value delivery.",
+        "confidence": 0.76,
+    },
+    {
+        "startup": "Notion",
+        "similarity_reason": "Horizontal workflow adoption with verticalized team use-cases.",
+        "market": "Collaboration and productivity",
+        "business_model": "Freemium to paid seats",
+        "stage": "Mature private",
+        "gtm_motion": "Product-led growth with enterprise upsell",
+        "funding_snapshot": "Strong momentum driven by usage depth and cross-functional expansion.",
+        "confidence": 0.72,
+    },
+]

@@ -12,6 +12,7 @@ from zyndai_agent.agent import ZyndAIAgent
 from zyndai_agent.message import AgentMessage
 
 from agents.funding_agent.prompts import SYSTEM_PROMPT
+from agents.funding_agent.seeds import SEED_ITEMS
 from shared.config import get_settings
 from shared.llm import build_llm_data_factory
 from shared.schemas import AgentTaskResponse
@@ -78,6 +79,7 @@ _build_data = build_llm_data_factory(
     settings=settings,
     capability="funding-analysis",
     system_prompt=SYSTEM_PROMPT,
+    seed_items=SEED_ITEMS,
 )
 
 
@@ -197,6 +199,7 @@ def _process(message: AgentMessage) -> AgentTaskResponse:
     trend_items, trend_agent = _request_trend_context(message)
     trend_summary = _summarize_trend_context(trend_items)
     notes = ["Uses configured LLM provider for live funding reasoning when available."]
+    collaboration_trace: list[str] = []
     if trend_summary:
         for item in data:
             if isinstance(item, dict):
@@ -204,6 +207,9 @@ def _process(message: AgentMessage) -> AgentTaskResponse:
         log.info("[Merge] funding-agent enriched funding output with trend context")
     if trend_agent:
         notes.append(f"Collaborated with {trend_agent} for market trend context.")
+        collaboration_trace.append(
+            f"funding-agent -> {trend_agent}: requested trend context and merged it into funding signals."
+        )
 
     return AgentTaskResponse(
         task_id=task_id,
@@ -212,6 +218,7 @@ def _process(message: AgentMessage) -> AgentTaskResponse:
         capability="funding-analysis",
         data=data,
         notes=notes,
+        collaboration_trace=collaboration_trace,
     )
 
 

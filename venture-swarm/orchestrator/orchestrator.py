@@ -4,6 +4,7 @@ import asyncio
 import time
 import uuid
 from dataclasses import dataclass
+from typing import AsyncIterator
 
 from zyndai_agent.agent import AgentConfig, ZyndAIAgent
 
@@ -246,6 +247,7 @@ class VentureSwarmOrchestrator:
                 "conversation_id": conversation_id,
                 "agent_status": d.used_agent.status,
                 "last_heartbeat": d.used_agent.last_heartbeat,
+                "collaboration_trace": d.response.collaboration_trace,
             }
             for d in dispatches
         ]
@@ -293,3 +295,146 @@ class VentureSwarmOrchestrator:
             elapsed,
         )
         return report
+
+    async def run_stream(self, query: str) -> AsyncIterator[dict]:
+        started = time.perf_counter()
+        tasks = plan(query)
+        yield {"stage": "planning", "status": "complete", "tasks_total": len(tasks.tasks)}
+        conversation_id = str(uuid.uuid4())
+
+        discovery_results = await asyncio.gather(
+            *[
+                discover_and_rank(orchestrator_agent=self._agent, store=self._rep, capability=t.capability)
+                for t in tasks.tasks
+            ]
+        )
+
+        by_capability = {tasks.tasks[i].capability: discovery_results[i] for i in range(len(tasks.tasks))}
+        self._metrics.active_agents_last_run = len(
+            {candidate.agent_id for candidates in discovery_results for candidate in candidates}
+        )
+        yield {"stage": "discovery", "status": "complete", "active_agents": self._metrics.active_agents_last_run}
+        log.info("[Metrics] active_agents=%d", self._metrics.active_agents_last_run)
+
+        payment_token = self._settings.premium_payment_token
+        if payment_token:
+            log.info("[Orchestrator] Premium payment token configured.")
+        if self._settings.x402_enabled:
+            log.info("[x402] SDK-native Base Sepolia payment routing enabled.")
+
+        async def _run_task(t):
+            candidates = by_capability.get(t.capability, [])
+            try:
+                return await dispatch_with_failover(
+                    sender_agent=self._agent,
+                    task=t,
+                    query=tasks.query,
+                    candidates=candidates,
+                    store=self._rep,
+                    payment_token=payment_token,
+                    conversation_id=conversation_id,
+                )
+            except Exception as e:  # noqa: BLE001
+                self._metrics.last_error = str(e)
+                log.warning("[Failover] Primary pool failed for %s: %s", t.capability, e)
+                fresh = await discover_and_rank(orchestrator_agent=self._agent, store=self._rep, capability=t.capability)
+                tried = {c.agent_id for c in candidates}
+                remaining = [c for c in fresh if c.agent_id not in tried] or fresh
+                log.warning("[Recovery] Retrying %s task dispatch with %d candidate(s)", t.capability, len(remaining))
+                if remaining:
+                    log.warning("[Recovery] %s selected", remaining[0].display_identity)
+                return await dispatch_with_failover(
+                    sender_agent=self._agent,
+                    task=t,
+                    query=tasks.query,
+                    candidates=remaining,
+                    store=self._rep,
+                    payment_token=payment_token,
+                    conversation_id=conversation_id,
+                )
+
+        async def _dispatch_with_capability(task):
+            return task.capability, await _run_task(task)
+
+        dispatch_tasks = [asyncio.create_task(_dispatch_with_capability(task)) for task in tasks.tasks]
+        dispatches = []
+        responses: dict[str, AgentTaskResponse] = {}
+        trace: list[dict] = []
+
+        completed = 0
+        total = len(dispatch_tasks)
+        for completed_task in asyncio.as_completed(dispatch_tasks):
+            capability, dispatch = await completed_task
+            dispatches.append(dispatch)
+            responses[capability] = dispatch.response
+            completed += 1
+            trace_item = {
+                "task_id": dispatch.response.task_id,
+                "capability": dispatch.response.capability,
+                "agent": dispatch.used_agent.name,
+                "agent_id": dispatch.used_agent.agent_id,
+                "agent_fqan": dispatch.used_agent.fqan,
+                "agent_version": dispatch.used_agent.version,
+                "latency_s": round(dispatch.latency_s, 3),
+                "failovers": dispatch.failovers,
+                "conversation_id": conversation_id,
+                "agent_status": dispatch.used_agent.status,
+                "last_heartbeat": dispatch.used_agent.last_heartbeat,
+                "collaboration_trace": dispatch.response.collaboration_trace,
+            }
+            trace.append(trace_item)
+            yield {
+                "stage": "dispatch",
+                "status": "task_complete",
+                "completed": completed,
+                "total": total,
+                "capability": capability,
+                "agent": dispatch.used_agent.display_identity,
+                "latency_s": round(dispatch.latency_s, 3),
+                "failovers": dispatch.failovers,
+            }
+
+        self._metrics.tasks_dispatched += len(dispatches)
+        self._metrics.failovers_triggered += sum(d.failovers for d in dispatches)
+
+        required_capabilities = [task.capability for task in tasks.tasks]
+        for capability in required_capabilities:
+            if capability in responses:
+                continue
+            log.warning("[Recovery] Missing %s response; using empty fallback payload", capability)
+            responses[capability] = AgentTaskResponse(
+                task_id=f"missing-{capability}",
+                agent_id="unavailable",
+                agent_name="unavailable",
+                capability=capability,
+                data=[],
+                notes=["No successful response returned for this capability; fallback data applied."],
+            )
+
+        report = aggregate(
+            query=query,
+            trend=responses["trend-analysis"],
+            funding=responses["funding-analysis"],
+            benchmarking=responses["benchmarking-analysis"],
+            competitors=responses["competitor-analysis"],
+            startup_comparisons=responses["startup-comparison"],
+            market_gaps=responses["market-gap-analysis"],
+            financial_signals=responses["financial-signal-analysis"],
+            risks=responses["risk-analysis"],
+            agent_trace=trace,
+        )
+        elapsed = time.perf_counter() - started
+        self._metrics.orchestrations_total += 1
+        self._metrics.total_orchestration_latency_s += elapsed
+        self._metrics.last_error = None
+        avg_latency = sum(d.latency_s for d in dispatches) / max(1, len(dispatches))
+        success_rate = self._rep.success_rate()
+        log.info(
+            "[Metrics] active_agents=%d avg_latency=%.3fs failovers=%d success_rate=%.0f%% orchestration_time=%.3fs",
+            self._metrics.active_agents_last_run,
+            avg_latency,
+            sum(d.failovers for d in dispatches),
+            success_rate * 100,
+            elapsed,
+        )
+        yield {"stage": "aggregation", "status": "complete", "report": report.model_dump(mode="json")}
