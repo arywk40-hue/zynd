@@ -23,6 +23,14 @@ def _x402_enabled() -> bool:
     return os.getenv("X402_ENABLED", "false").lower() in {"1", "true", "yes", "on"}
 
 
+def _dispatch_timeout_s() -> float:
+    raw = os.getenv("AGENT_DISPATCH_TIMEOUT_S", "24")
+    try:
+        return max(3.0, float(raw))
+    except ValueError:
+        return 24.0
+
+
 def _candidate_requires_payment(candidate: CandidateAgent) -> bool:
     card = candidate.card or {}
     payment = card.get("payment") or {}
@@ -146,15 +154,16 @@ async def _call_agent(
     log.info("[Webhook] POST %s (%s)", sync_url, candidate.display_identity)
 
     def _post():
+        timeout_s = _dispatch_timeout_s()
         if _x402_enabled():
-            return sender_agent.x402_processor.post(sync_url, json=msg.to_dict(), headers=headers, timeout=12)
+            return sender_agent.x402_processor.post(sync_url, json=msg.to_dict(), headers=headers, timeout=timeout_s)
         if payment_token:
-            return requests.post(sync_url, json=msg.to_dict(), headers=headers, timeout=12)
+            return requests.post(sync_url, json=msg.to_dict(), headers=headers, timeout=timeout_s)
         try:
-            return sender_agent.x402_processor.post(sync_url, json=msg.to_dict(), headers=headers, timeout=12)
+            return sender_agent.x402_processor.post(sync_url, json=msg.to_dict(), headers=headers, timeout=timeout_s)
         except Exception as e:  # noqa: BLE001
             if "Invalid payment required response" in str(e):
-                return requests.post(sync_url, json=msg.to_dict(), headers=headers, timeout=12)
+                return requests.post(sync_url, json=msg.to_dict(), headers=headers, timeout=timeout_s)
             raise
 
     try:

@@ -24,7 +24,7 @@ This project is an application built on top of ZyndAI, not a reimplementation of
    ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
    │ TREND RESEARCH   │    │  COMPETITOR AI   │    │  FUNDING SYSTEM  │
    │      AGENT       │    │      AGENT       │    │      AGENT       │
-   │ (Web/Scraping)   │    │  (Market Gaps)   │    │ (Premium / USDC) │
+   │ (Apify Search)   │    │  (Market Gaps)   │    │ (Premium / USDC) │
    └──────────────────┘    └──────────────────┘    └──────────────────┘
              │                       │                       │
              └───────────────────────┼───────────────────────┘
@@ -47,18 +47,20 @@ This project is an application built on top of ZyndAI, not a reimplementation of
 ### 1. The Orchestrator (The Brain)
 
 * **Role:** Decomposes user requests, handles Zynd agent discovery, manages parallel async execution, and synthesizes the final output.
-* **Tech:** Python, `asyncio`, LangGraph (optional for strict routing).
+* **Tech:** Python, FastAPI, `asyncio`, ZyndAI SDK runtime.
 
 ### 2. The Agent Swarm (The Workers)
 
 Each agent is registered as an independent entity on the Zynd network using `ZyndAIAgent(...)`.
 
-* **Trend Research Agent:** Utilizes Tavily/SerpAPI to find market momentum.
-* **Benchmarking Agent:** Builds comparable startup sets and similarity signals.
+* **Trend Research Agent:** Uses Apify Google Search context to identify market momentum.
+* **Funding Intelligence Agent:** Uses Apify Google News context for venture funding signals and can be gated behind HTTP 402 Payment Required.
+* **Benchmarking Agent:** Builds comparable startup sets and requests financial overlays from the financial signals agent.
 * **Financial Signals Agent:** Estimates burn/runway, margin, and unit economics proxies.
 * **Competitor Analysis Agent:** Analyzes saturation and existing solutions.
-* **Funding Intelligence Agent:** Tracks funding data and can be gated behind a payment flow signaled via HTTP 402 Payment Required.
-* **Risk Analysis Agent:** Evaluates regulatory and technical barriers.
+* **Startup Compare Agent:** Compares similar startups for funding, traction, profit upside, and loss/downside patterns.
+* **Market Gap Agent:** Finds underserved segments and user pain points.
+* **Risk Analysis Agent:** Evaluates regulatory, privacy, legal, and technical barriers.
 
 ---
 
@@ -82,31 +84,48 @@ VentureSwarm does not implement mesh networking, gossip, DHT/Kademlia, registry 
 ## Tech Stack
 
 * **Infrastructure:** Zynd Python SDK
-* **Backend:** Python 3.11+, FastAPI (for agent endpoints)
+* **Backend:** Python 3.12+, FastAPI (for agent endpoints)
 * **Concurrency:** `asyncio`
-* **LLM Providers:** Gemini / OpenAI / Groq (mixed model routing based on agent needs)
-* **Tooling:** Tavily Search API, Firecrawl
+* **LLM Providers:** OpenAI / Groq / Gemini / Anthropic / Mistral / Cerebras
+* **Tooling:** Apify (Google Search, Google News, Reddit scrapers)
 
 ---
 
 ## Directory Structure
 
 ```text
-zynd-swarm/
+venture-swarm/
 ├── orchestrator/
-│   ├── planner.py         # Breaks down the user prompt
-│   ├── discovery.py       # Interacts with Zynd registry search
-│   └── aggregator.py      # Combines the sub-agent responses
+│   ├── planner.py              # Breaks down the user prompt
+│   ├── discovery.py            # Heartbeat-aware Zynd registry search
+│   ├── dispatcher.py           # Webhook dispatch, retries, x402 fallback
+│   ├── reputation.py           # Latency, success, and quality scoring
+│   ├── orchestrator.py         # Runtime orchestration
+│   ├── orchestrator_agent.py   # API-facing wrapper
+│   └── aggregator.py           # Scorecard, forecast, and synthesis
 ├── agents/
-│   ├── trend_agent/            # FastAPI app + Zynd SDK init
-│   ├── benchmarking_agent/     # FastAPI app + Zynd SDK init
-│   ├── financial_signals_agent/ # FastAPI app + Zynd SDK init
-│   ├── competitor_agent/       # FastAPI app + Zynd SDK init
-│   └── funding_agent/          # FastAPI app + Zynd SDK init
-├── core/
-│   ├── prompts.py         # System instructions for all models
-│   └── schemas.py         # Pydantic models for strict JSON outputs
-├── main.py                # CLI/API entry point for the user
+│   ├── trend_agent/
+│   ├── funding_agent/
+│   ├── benchmarking_agent/
+│   ├── competitor_agent/
+│   ├── startup_compare_agent/
+│   ├── market_gap_agent/
+│   ├── financial_signals_agent/
+│   └── risk_agent/
+├── registry/
+│   └── app.py                  # Local SDK-compatible directory for demos
+├── shared/
+│   ├── schemas.py              # Pydantic models for strict JSON outputs
+│   ├── llm.py                  # Live LLM provider calls + retries
+│   ├── apify_tools.py          # Real web-data grounding
+│   ├── zynd_runtime.py         # SDK runtime compatibility helpers
+│   ├── config.py
+│   └── utils.py
+├── docs/
+│   ├── advanced-implementation-prompts.md
+│   └── zns-deployment.md
+├── main.py                     # UI/API entry point
+├── docker-compose.yml
 └── requirements.txt
 
 ```

@@ -9,11 +9,11 @@ from zyndai_agent.agent import AgentConfig, ZyndAIAgent
 
 from orchestrator.aggregator import aggregate
 from orchestrator.discovery import discover_and_rank
-from orchestrator.dispatcher import dispatch_with_failover
+from orchestrator.dispatcher import DispatchResult, dispatch_with_failover
 from orchestrator.planner import plan
 from orchestrator.reputation import ReputationStore
 from shared.config import Settings
-from shared.schemas import AgentTaskResponse, StartupReport
+from shared.schemas import AgentTaskResponse, CandidateAgent, StartupReport
 from shared.utils import get_logger
 from shared.zynd_runtime import (
     build_zns_fqan,
@@ -200,6 +200,29 @@ class VentureSwarmOrchestrator:
 
         async def _run_task(t):
             candidates = by_capability.get(t.capability, [])
+
+            def _fallback_result(reason: str, fallback_candidates: list[CandidateAgent]) -> DispatchResult:
+                fallback_agent = (
+                    fallback_candidates[0]
+                    if fallback_candidates
+                    else CandidateAgent(
+                        agent_id="unavailable",
+                        name=f"{t.capability}-unavailable",
+                        agent_url="http://127.0.0.1",
+                        status="inactive",
+                    )
+                )
+                log.warning("[Recovery] Using empty fallback payload for %s: %s", t.capability, reason)
+                response = AgentTaskResponse(
+                    task_id=f"fallback-{t.id}",
+                    agent_id=fallback_agent.agent_id,
+                    agent_name=fallback_agent.name,
+                    capability=t.capability,
+                    data=[],
+                    notes=[f"Agent response unavailable; fallback applied. Reason: {reason}"],
+                )
+                return DispatchResult(response=response, used_agent=fallback_agent, latency_s=0.0, failovers=1)
+
             try:
                 return await dispatch_with_failover(
                     sender_agent=self._agent,
@@ -219,15 +242,20 @@ class VentureSwarmOrchestrator:
                 log.warning("[Recovery] Retrying %s task dispatch with %d candidate(s)", t.capability, len(remaining))
                 if remaining:
                     log.warning("[Recovery] %s selected", remaining[0].display_identity)
-                return await dispatch_with_failover(
-                    sender_agent=self._agent,
-                    task=t,
-                    query=tasks.query,
-                    candidates=remaining,
-                    store=self._rep,
-                    payment_token=payment_token,
-                    conversation_id=conversation_id,
-                )
+                try:
+                    return await dispatch_with_failover(
+                        sender_agent=self._agent,
+                        task=t,
+                        query=tasks.query,
+                        candidates=remaining,
+                        store=self._rep,
+                        payment_token=payment_token,
+                        conversation_id=conversation_id,
+                    )
+                except Exception as retry_error:  # noqa: BLE001
+                    self._metrics.last_error = str(retry_error)
+                    log.warning("[Recovery] %s retry failed: %s", t.capability, retry_error)
+                    return _fallback_result(str(retry_error), remaining or candidates)
 
         dispatches = await asyncio.gather(*[_run_task(t) for t in tasks.tasks])
         self._metrics.tasks_dispatched += len(dispatches)
