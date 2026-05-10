@@ -164,26 +164,36 @@ def generate_structured_items(
 
 
 def _call_with_retries(*, provider: str, capability: str, call: Callable[[], str]) -> str:
-    """Run a provider call with exponential backoff on HTTP 429/503 responses."""
-    for attempt in range(_MAX_LLM_RETRIES + 1):
+    """Run a synchronous provider call with exponential backoff on HTTP 429/503 responses."""
+    try:
+        return call()
+    except httpx.HTTPStatusError as e:
+        status_code = e.response.status_code if e.response is not None else None
+        if status_code not in _RETRYABLE_STATUS_CODES:
+            raise
+
+    for retry_index in range(1, _MAX_LLM_RETRIES + 1):
+        delay_s = _RETRY_BASE_DELAY_S * (2 ** (retry_index - 1))
+        log.warning(
+            "[LLM] %s %s failed with HTTP %s (retry %d/%d); retrying in %.1fs",
+            provider,
+            capability,
+            status_code,
+            retry_index,
+            _MAX_LLM_RETRIES,
+            delay_s,
+        )
+        time.sleep(delay_s)
+
         try:
             return call()
         except httpx.HTTPStatusError as e:
             status_code = e.response.status_code if e.response is not None else None
-            is_retryable = status_code in _RETRYABLE_STATUS_CODES and attempt < _MAX_LLM_RETRIES
-            if not is_retryable:
+            is_retryable = status_code in _RETRYABLE_STATUS_CODES
+            if not is_retryable or retry_index >= _MAX_LLM_RETRIES:
                 raise
-            delay_s = _RETRY_BASE_DELAY_S * (2**attempt)
-            log.warning(
-                "[LLM] %s %s failed with HTTP %s (retry %d/%d); retrying in %.1fs",
-                provider,
-                capability,
-                status_code,
-                attempt + 1,
-                _MAX_LLM_RETRIES,
-                delay_s,
-            )
-            time.sleep(delay_s)
+
+    raise RuntimeError("Retry loop exhausted unexpectedly")
 
 
 def _build_prompt(
