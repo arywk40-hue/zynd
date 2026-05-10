@@ -31,11 +31,13 @@ class ReputationStoreTests(unittest.TestCase):
         store = ReputationStore()
         store.update_observation("agent-1", latency_s=2.0, success=True, quality_score=0.9)
 
-        score = store.score_candidate(_candidate(latency_s=-1.0, freshness_s=600.0, status="online"))
+        score_with_negative_latency = store.score_candidate(_candidate(latency_s=-1.0, freshness_s=600.0, status="active"))
+        score_with_zero_latency = store.score_candidate(_candidate(latency_s=0.0, freshness_s=600.0, status="active"))
 
-        self.assertGreaterEqual(score, 0.0)
-        self.assertLessEqual(score, 1.0)
-        self.assertGreater(score, 0.5)
+        self.assertAlmostEqual(score_with_negative_latency, score_with_zero_latency, places=6)
+        self.assertGreaterEqual(score_with_negative_latency, 0.0)
+        self.assertLessEqual(score_with_negative_latency, 1.0)
+        self.assertGreater(score_with_negative_latency, 0.5)
 
     def test_update_observation_tracks_failures_and_clamps_quality(self) -> None:
         store = ReputationStore()
