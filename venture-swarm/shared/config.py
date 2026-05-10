@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-1.5-flash"
 
     anthropic_api_key: str | None = None
-    anthropic_model: str = "claude-3-5-haiku-latest"
+    anthropic_model: str = "claude-haiku-4-5-20251001"
 
     mistral_api_key: str | None = None
     mistral_base_url: str = "https://api.mistral.ai/v1"

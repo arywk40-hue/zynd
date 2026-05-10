@@ -140,15 +140,17 @@ def aggregate(
     score_raw = (
         (trend_strength * 10.0 * 0.25)
         + (funding_strength * 10.0 * 0.20)
+        + (financial_strength * 10.0 * 0.10)
         + (gap_strength * 10.0 * 0.20)
-        + (comparison_strength * 10.0 * 0.15)
+        + (comparison_strength * 10.0 * 0.05)
         + (_SATURATION_SCORE[saturation] * 0.10)
         + (_DIFFICULTY_SCORE[difficulty] * 0.10)
     )
     opportunity_score = round(min(10.0, max(0.0, score_raw)), 2)
 
-    monetization_potential = "High" if funding_strength >= 0.75 else "Medium"
-    if funding_strength < 0.6:
+    monetization_signal = (funding_strength + financial_strength) / 2.0
+    monetization_potential = "High" if monetization_signal >= 0.75 else "Medium"
+    if monetization_signal < 0.6:
         monetization_potential = "Low"
 
     top_gap = market_gaps.data[0] if market_gaps.data else {}
