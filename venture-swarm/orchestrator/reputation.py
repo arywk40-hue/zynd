@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from typing import Dict
 
@@ -12,6 +13,13 @@ class AgentObservation:
     success_rate: float = 0.9
     quality_score: float = 0.82
     reliability: float = 0.9
+    failure_count: int = 0
+    observations_total: int = 0
+    started_at: float = field(default_factory=time.monotonic)
+
+    @property
+    def uptime_seconds(self) -> float:
+        return max(0.0, time.monotonic() - self.started_at)
 
 
 @dataclass
@@ -55,6 +63,7 @@ class ReputationStore:
         new_latency = (prev.latency_s * 0.8) + (latency_s * 0.2)
         new_success_rate = (prev.success_rate * 0.9) + ((1.0 if success else 0.0) * 0.1)
         new_reliability = (prev.reliability * 0.9) + ((1.0 if success else 0.0) * 0.1)
+        new_failure_count = prev.failure_count + (0 if success else 1)
         if quality_score is None:
             quality_score = prev.quality_score
         quality_score = max(0.0, min(1.0, quality_score))
@@ -64,9 +73,28 @@ class ReputationStore:
             success_rate=new_success_rate,
             quality_score=new_quality,
             reliability=new_reliability,
+            failure_count=new_failure_count,
+            observations_total=prev.observations_total + 1,
+            started_at=prev.started_at,
         )
 
     def success_rate(self) -> float:
         if not self.observed:
             return 1.0
         return sum(obs.success_rate for obs in self.observed.values()) / len(self.observed)
+
+    def observation_for(self, agent_id: str) -> AgentObservation:
+        return self.observed.get(agent_id, AgentObservation())
+
+    def snapshot(self) -> dict[str, dict[str, float | int]]:
+        return {
+            agent_id: {
+                "latency": round(obs.latency_s, 3),
+                "success_rate": round(obs.success_rate, 4),
+                "quality_score": round(obs.quality_score, 4),
+                "failure_count": obs.failure_count,
+                "uptime": round(obs.uptime_seconds, 3),
+                "observations_total": obs.observations_total,
+            }
+            for agent_id, obs in self.observed.items()
+        }

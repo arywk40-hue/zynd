@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import requests
 from fastapi import BackgroundTasks, FastAPI, Header, HTTPException, Request
 from zyndai_agent.agent import ZyndAIAgent
+from zyndai_agent.message import AgentMessage
 
 from agents.funding_agent.prompts import SYSTEM_PROMPT
 from shared.config import get_settings
@@ -17,10 +20,11 @@ from shared.zynd_runtime import (
     WebhookRuntimeState,
     async_webhook_response,
     build_sdk_agent,
-    build_startup_task_processor,
     install_shutdown_handlers,
+    sdk_agent_id,
     sdk_agent_card,
     sdk_health,
+    search_agents,
     start_sdk_runtime,
     stop_sdk_runtime,
     sync_webhook_response,
@@ -91,6 +95,126 @@ def _stop_runtime() -> None:
 install_shutdown_handlers("funding-agent", _stop_runtime)
 
 
+def _summarize_trend_context(items: list[dict]) -> str:
+    if not items:
+        return ""
+    lines = []
+    for item in items[:3]:
+        trend = str(item.get("trend") or item.get("signal") or "").strip()
+        evidence = str(item.get("evidence") or "").strip()
+        time_horizon = str(item.get("time_horizon") or "").strip()
+        parts = [part for part in (trend, evidence, time_horizon) if part]
+        if parts:
+            lines.append(" | ".join(parts))
+    return "; ".join(lines)
+
+
+def _request_trend_context(message: AgentMessage) -> tuple[list[dict], str | None]:
+    if agent is None:
+        return [], None
+
+    log.info("[Swarm] funding-agent requesting trend intelligence")
+    try:
+        candidates = search_agents(
+            registry_url=agent.agent_config.registry_url,
+            query="trend analysis",
+            category="startup-intelligence",
+            tags=["startup", "trends", "trend-analysis"],
+            skills=["trend-analysis", "startup-trends"],
+            protocols=["webhook", "webhook-sync"],
+            status="active",
+            min_trust_score=0.0,
+            developer_handle=settings.zns_developer_handle,
+            max_results=5,
+            federated=True,
+            enrich=True,
+        )
+    except Exception as e:  # noqa: BLE001
+        log.warning("[Discovery] Trend collaboration search failed: %s", e)
+        return [], None
+
+    if not candidates:
+        log.warning("[Discovery] No compatible trend-agent available")
+        return [], None
+
+    for candidate in candidates:
+        log.info("[Discovery] Found compatible trend-agent %s", candidate.display_identity)
+        log.info("[Coordination] funding-agent routing trend request to %s", candidate.display_identity)
+
+        collab_message = AgentMessage(
+            content=message.content,
+            sender_id=agent.entity_id,
+            sender_public_key=agent.keypair.public_key_string,
+            receiver_id=candidate.agent_id,
+            message_type="query",
+            conversation_id=message.conversation_id,
+            in_reply_to=message.message_id,
+            metadata={
+                "task_id": f"collab-trend-{message.message_id}",
+                "instruction": "Provide trend context that materially changes funding appetite, timing, and investor narrative.",
+                "requested_capability": "trend-analysis",
+                "collaboration_source": "funding-agent",
+            },
+        )
+
+        sync_url = f"{str(candidate.agent_url).rstrip('/')}/webhook/sync"
+        try:
+            response = agent.x402_processor.post(sync_url, json=collab_message.to_dict(), timeout=12)
+        except Exception as e:  # noqa: BLE001
+            log.info("[Coordination] Falling back to direct HTTP for trend intelligence: %s", e)
+            try:
+                response = requests.post(sync_url, json=collab_message.to_dict(), timeout=12)
+            except requests.RequestException as request_error:
+                log.warning("[Error] Trend collaboration transport failed: %s", request_error)
+                continue
+
+        if response.status_code != 200:
+            log.warning("[Error] Trend collaboration returned HTTP %s", response.status_code)
+            continue
+
+        try:
+            payload = AgentTaskResponse.model_validate(response.json())
+        except Exception as e:  # noqa: BLE001
+            log.warning("[Error] Trend collaboration response invalid: %s", e)
+            continue
+
+        log.info("[Response] %s returned market trend context", payload.agent_name)
+        return payload.data, payload.agent_name
+
+    log.warning("[Failover] No trend collaboration candidate completed successfully")
+    return [], None
+
+
+def _process(message: AgentMessage) -> AgentTaskResponse:
+    assert agent is not None
+    metadata = message.metadata or {}
+    instruction = str(metadata.get("instruction", ""))
+    task_id = str(metadata.get("task_id", message.message_id))
+
+    raw = agent.invoke(f"{message.content}\nInstruction: {instruction}" if instruction else message.content)
+    data = json.loads(raw)
+
+    trend_items, trend_agent = _request_trend_context(message)
+    trend_summary = _summarize_trend_context(trend_items)
+    notes = ["Uses configured LLM provider for live funding reasoning when available."]
+    if trend_summary:
+        for item in data:
+            if isinstance(item, dict):
+                item["trend_context"] = trend_summary
+        log.info("[Merge] funding-agent enriched funding output with trend context")
+    if trend_agent:
+        notes.append(f"Collaborated with {trend_agent} for market trend context.")
+
+    return AgentTaskResponse(
+        task_id=task_id,
+        agent_id=sdk_agent_id(agent) or "unknown",
+        agent_name=agent.agent_config.name,
+        capability="funding-analysis",
+        data=data,
+        notes=notes,
+    )
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     global agent, _agent_config, _process_message
@@ -107,12 +231,20 @@ async def lifespan(_: FastAPI):
         price=(f"${_premium_cost():.2f}" if _premium_required() else None),
     )
 
-    _process_message = build_startup_task_processor(
-        agent=agent,
-        capability="funding-analysis",
-        build_data=_build_data,
-        base_notes=["Uses configured LLM provider for live funding reasoning when available."],
-    )
+    agent.set_custom_agent(lambda text: json.dumps(_build_data(text), ensure_ascii=False))
+
+    def _sdk_handler(handler_input, _task):
+        message = handler_input.message
+        log.info("[Webhook] Received request from %s", message.sender_id)
+        log.info("[Sync] Processing funding-analysis task")
+        started = time.perf_counter()
+        response = _process(message)
+        elapsed = time.perf_counter() - started
+        log.info("[Response] Completed in %.3fs", elapsed)
+        return response.model_dump(mode="json")
+
+    agent.on_message(_sdk_handler)
+    _process_message = _process
     start_sdk_runtime(agent)
     log.info("[Heartbeat] %s connected to registry", agent.agent_config.name)
 

@@ -109,13 +109,16 @@ async def discover_and_rank(*, orchestrator_agent: ZyndAIAgent, store: Reputatio
 
     log.info("[Discovery] Found %d active compatible agents", len(ranked))
     for candidate in ranked:
+        obs = store.observation_for(candidate.agent_id)
         log.info(
-            "[Ranking] %s trust=%.2f status=%s latency=%s freshness=%s score=%.2f endpoint=%s",
+            "[Ranking] %s trust=%.2f status=%s latency=%s freshness=%s success=%.0f%% quality=%.2f score=%.2f endpoint=%s",
             candidate.display_identity,
             candidate.trust_score,
             candidate.status,
             f"{candidate.latency_s:.2f}s" if candidate.latency_s is not None else "unknown",
             f"{candidate.freshness_s:.1f}s" if candidate.freshness_s is not None else "unknown",
+            obs.success_rate * 100,
+            obs.quality_score,
             candidate.rank_score,
             str(candidate.agent_url),
         )

@@ -160,6 +160,15 @@ The SDK identity/keypair signs the card. Clients can fetch the card before invok
 - `/health` is checked before dispatch so unhealthy agents are skipped
 - Outbound calls use the SDK x402 processor and SDK `AgentMessage` structure
 
+## Advanced Runtime Features
+
+VentureSwarm now includes two real agent-to-agent collaboration paths:
+
+- `funding-agent` dynamically discovers `trend-agent`, requests trend context, preserves `conversation_id` / `in_reply_to`, and merges trend context into funding outputs.
+- `benchmarking-agent` dynamically discovers `financial-signals-agent`, requests financial overlays, and merges the returned unit-economics signals into comparable startup benchmarks.
+
+The orchestrator reputation layer tracks runtime latency, success rate, schema quality, failure count, and observation uptime. Discovery logs include ranking details so demos show why an agent was selected, and orchestrator `/health` exposes the current reputation snapshot.
+
 ## Heartbeat And Liveness
 
 - Agents start the ZyndAI SDK runtime on startup, which starts the SDK WebSocket heartbeat.

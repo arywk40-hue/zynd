@@ -106,6 +106,7 @@ class VentureSwarmOrchestrator:
             "orchestrations_total": self._metrics.orchestrations_total,
             "average_orchestration_time_s": round(self._metrics.average_orchestration_time_s, 3),
             "last_error": self._metrics.last_error,
+            "agent_reputation": self._rep.snapshot(),
         }
         health.update(sdk_payment_status(self._agent, settings=self._settings))
         return health

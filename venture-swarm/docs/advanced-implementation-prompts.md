@@ -11,7 +11,21 @@ These prompts are intentionally scoped as post-core upgrades. Use them only afte
 
 Do not let these optional upgrades pull the project into Zynd platform internals. VentureSwarm remains an application built on top of ZyndAI.
 
-## 1. Agent-To-Agent Messaging
+## Core Stability Gate
+
+Do not start these prompts until the core system passes:
+
+- `python -m compileall venture-swarm`
+- `docker compose config --services`
+- all services start without port conflicts
+- `/health` returns healthy for directory, orchestrator, and every agent
+- `/network` shows active heartbeat-connected agents
+- `/report` completes one full startup-intelligence run
+- UI renders the latest report without JavaScript errors
+
+If any of these fail, fix the core system first. Advanced features should deepen the demo, not hide broken orchestration.
+
+## 1. Agent-To-Agent Messaging Implementation Prompt
 
 Implement real decentralized agent-to-agent communication inside VentureSwarm using ZyndAI webhook messaging.
 
@@ -129,7 +143,7 @@ This feature should demonstrate distributed autonomous intelligence.
 
 Do not fake collaboration. Use real inter-agent communication patterns.
 
-## 2. Reputation System
+## 2. Reputation System Implementation Prompt
 
 Implement an intelligent reputation and ranking system for VentureSwarm agent orchestration.
 
@@ -226,7 +240,7 @@ Logs should visibly show ranking decisions:
 
 The system should feel intelligent: dynamic, adaptive, autonomous, and production-grade.
 
-## 3. Deployer And x402 Premium Agents
+## 3. Deployer And x402 Premium Agents Implementation Prompt
 
 Implement optional deployment polish and premium-agent support for VentureSwarm using ZyndAI deployment and x402 capabilities.
 
