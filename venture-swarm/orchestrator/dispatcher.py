@@ -194,7 +194,7 @@ async def dispatch_with_failover(
             failovers += 1
 
         if _candidate_requires_payment(candidate):
-            log.info("\\[x402] Premium candidate detected: %s", candidate.display_identity)
+            log.info("[x402] Premium candidate detected: %s", candidate.display_identity)
 
         if not await _candidate_healthy(candidate):
             store.update_observation(candidate.agent_id, latency_s=3.0, success=False)
@@ -222,13 +222,13 @@ async def dispatch_with_failover(
                 response=tr.value,
             )
             if _candidate_requires_payment(candidate) and _x402_enabled():
-                log.info("\\[x402] Payment successful")
+                log.info("[x402] Payment successful")
             return DispatchResult(response=tr.value, used_agent=candidate, latency_s=tr.latency_s, failovers=failovers)
         except AgentDispatchHTTPError as e:
             store.update_observation(candidate.agent_id, latency_s=2.5, success=False)
             last_exc = e
             if e.status_code == 402 and payment_token:
-                log.warning("\\[x402] %s requires payment; retrying with configured payment token...", candidate.display_identity)
+                log.warning("[x402] %s requires payment; retrying with configured payment token...", candidate.display_identity)
                 try:
                     tr = await timed(
                         _call_agent(
@@ -236,19 +236,19 @@ async def dispatch_with_failover(
                             candidate=candidate,
                             task=task,
                             query=query,
-                        payment_token=payment_token,
-                        conversation_id=conversation_id,
-                        in_reply_to=in_reply_to,
+                            payment_token=payment_token,
+                            conversation_id=conversation_id,
+                            in_reply_to=in_reply_to,
+                        )
                     )
-                )
-                _record_quality(
-                    store=store,
-                    candidate=candidate,
-                    capability=task.capability,
-                    latency_s=tr.latency_s,
-                    response=tr.value,
-                )
-                return DispatchResult(response=tr.value, used_agent=candidate, latency_s=tr.latency_s, failovers=failovers)
+                    _record_quality(
+                        store=store,
+                        candidate=candidate,
+                        capability=task.capability,
+                        latency_s=tr.latency_s,
+                        response=tr.value,
+                    )
+                    return DispatchResult(response=tr.value, used_agent=candidate, latency_s=tr.latency_s, failovers=failovers)
                 except Exception as e2:  # noqa: BLE001
                     last_exc = e2
                     continue

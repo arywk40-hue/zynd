@@ -31,7 +31,7 @@ settings = get_settings()
 setup_logging(settings.log_level)
 log = get_logger("startup-compare-agent")
 
-PORT = 8106
+PORT = 8108
 
 
 def _service_url() -> str:

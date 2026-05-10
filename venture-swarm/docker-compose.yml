@@ -251,10 +251,10 @@ services:
 
   startup-compare-agent:
     build: .
-    command: uvicorn agents.startup_compare_agent.agent:app --host 0.0.0.0 --port 8106
+    command: uvicorn agents.startup_compare_agent.agent:app --host 0.0.0.0 --port 8108
     stop_grace_period: 10s
     ports:
-      - "8106:8106"
+      - "8108:8108"
     depends_on:
       - directory
     volumes:
@@ -262,7 +262,7 @@ services:
     environment:
       - DIRECTORY_URL=http://directory:8000
       - ZYND_REGISTRY_URL=http://directory:8000
-      - SERVICE_URL=http://startup-compare-agent:8106
+      - SERVICE_URL=http://startup-compare-agent:8108
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - ZNS_ROOT=${ZNS_ROOT:-zns01.zynd.ai}
       - ZNS_DEVELOPER_HANDLE=${ZNS_DEVELOPER_HANDLE:-venture-swarm}
@@ -292,7 +292,7 @@ services:
       - CEREBRAS_BASE_URL=${CEREBRAS_BASE_URL:-https://api.cerebras.ai/v1}
       - CEREBRAS_MODEL=${CEREBRAS_MODEL:-llama3.1-8b}
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8106/health', timeout=2).read()"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8108/health', timeout=2).read()"]
       interval: 15s
       timeout: 3s
       retries: 3
