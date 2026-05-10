@@ -652,8 +652,24 @@ async def index() -> str:
     }
 
     function sourceFromText(text) {
-      const match = String(text || "").match(new RegExp("https?://[^\\\\s)]+"));
-      return match ? match[0] : "";
+      const raw = String(text || "");
+      const httpIndex = raw.indexOf("http://");
+      const httpsIndex = raw.indexOf("https://");
+      let start = -1;
+      if (httpIndex >= 0 && httpsIndex >= 0) {
+        start = Math.min(httpIndex, httpsIndex);
+      } else {
+        start = Math.max(httpIndex, httpsIndex);
+      }
+      if (start < 0) return "";
+      const tail = raw.slice(start);
+      const stops = [" ", "\\n", "\\t", ")"];
+      let end = tail.length;
+      for (const stop of stops) {
+        const index = tail.indexOf(stop);
+        if (index >= 0) end = Math.min(end, index);
+      }
+      return tail.slice(0, end).replace(/[.,;]+$/, "");
     }
 
     function extractSources(report) {
@@ -1204,8 +1220,8 @@ async def index() -> str:
         drawPath(start, end, branch.dataset.branch === selectedBranch ? "is-selected" : "");
       }
 
-      const selectedNode = mapEl.querySelector(`[data-branch="${selectedBranch}"]`);
-      const leaves = mapEl.querySelectorAll(`[data-leaf-for="${selectedBranch}"]`);
+      const selectedNode = Array.from(branches).find((branch) => branch.dataset.branch === selectedBranch);
+      const leaves = Array.from(mapEl.querySelectorAll("[data-node='leaf']")).filter((leaf) => leaf.dataset.leafFor === selectedBranch);
       if (selectedNode && leaves.length) {
         const branchStart = centerPoint(selectedNode.getBoundingClientRect(), shellRect, "right");
         for (const leaf of leaves) {
@@ -1217,23 +1233,34 @@ async def index() -> str:
     }
 
     async function refreshNetwork() {
-      const [health, network] = await Promise.all([
-        fetch("/health").then((res) => res.json()),
-        fetch("/network").then((res) => res.json())
-      ]);
-      healthEl.textContent = `health: ${health.status}`;
-      activeEl.textContent = `active agents: ${network.active_agents}`;
-      agentsEl.innerHTML = "";
-      for (const agent of network.agents || []) {
-        const row = document.createElement("div");
-        row.className = "agent";
-        const left = document.createElement("div");
-        left.innerHTML = `<strong>${agent.fqan || agent.name}</strong><div class="muted">${(agent.capabilities || []).join(", ") || agent.category || "agent"}</div>`;
-        const right = document.createElement("div");
-        right.className = "muted";
-        right.textContent = agent.status;
-        row.append(left, right);
-        agentsEl.append(row);
+      try {
+        const [health, network] = await Promise.all([
+          fetch("/health").then((res) => res.json()),
+          fetch("/network").then((res) => res.json())
+        ]);
+        healthEl.textContent = `health: ${health.status}`;
+        activeEl.textContent = `active agents: ${network.active_agents}`;
+        agentsEl.innerHTML = "";
+        for (const agent of network.agents || []) {
+          const row = document.createElement("div");
+          row.className = "agent";
+          const left = document.createElement("div");
+          const name = document.createElement("strong");
+          name.textContent = agent.fqan || agent.name;
+          const meta = document.createElement("div");
+          meta.className = "muted";
+          meta.textContent = (agent.capabilities || []).join(", ") || agent.category || "agent";
+          left.append(name, meta);
+          const right = document.createElement("div");
+          right.className = "muted";
+          right.textContent = agent.status;
+          row.append(left, right);
+          agentsEl.append(row);
+        }
+      } catch (error) {
+        console.warn("Network refresh failed", error);
+        healthEl.textContent = "health: degraded";
+        activeEl.textContent = "active agents: unavailable";
       }
     }
 
@@ -1366,12 +1393,7 @@ async def index() -> str:
     renderPresets();
     renderProgress(-1);
     renderEmptyMap("Waiting for a query...");
-    refreshNetwork().catch((error) => {
-      healthEl.textContent = "health: unavailable";
-      activeEl.textContent = "active agents: unavailable";
-      renderEmptyMap(String(error));
-      outputEl.textContent = String(error);
-    });
+    refreshNetwork();
   </script>
 </body>
 </html>

@@ -38,7 +38,7 @@ _DISCOVERY_PROFILES = {
         "entity_name": "competitor-agent",
     },
     "startup-comparison": {
-        "query": "startup comparison funding profit loss benchmark",
+        "query": "startup comparison",
         "tags": ["startup", "comparison", "benchmarks", "funding-trajectory", "startup-comparison"],
         "skills": ["startup-comparison", "comparable-startups", "funding-trajectory-analysis"],
         "entity_name": "startup-compare-agent",

@@ -35,12 +35,16 @@ def _schema_quality(capability: str, data: list[dict]) -> float:
         return _DEFAULT_SCHEMA_QUALITY
     if not data:
         return 0.0
+
+    def _has_value(value: object) -> bool:
+        return value not in ("", None) and value not in ([], {}, ())
+
     scored: list[float] = []
     for item in data:
         if not isinstance(item, dict):
             continue
         present = sum(
-            1 for field in required if item.get(field) not in {"", None, [], {}, ()}
+            1 for field in required if _has_value(item.get(field))
         )
         scored.append(present / len(required))
     if not scored:
