@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 import time
-from typing import Any
+from typing import Any, Callable
 
 import httpx
 
@@ -163,7 +163,7 @@ def generate_structured_items(
         return []
 
 
-def _call_with_retries(*, provider: str, capability: str, call) -> str:
+def _call_with_retries(*, provider: str, capability: str, call: Callable[[], str]) -> str:
     for attempt in range(_MAX_LLM_RETRIES + 1):
         try:
             return call()

@@ -148,9 +148,9 @@ def aggregate(
     )
     opportunity_score = round(min(10.0, max(0.0, score_raw)), 2)
 
-    monetization_signal = (funding_strength + financial_strength) / 2.0
-    monetization_potential = "High" if monetization_signal >= 0.75 else "Medium"
-    if monetization_signal < 0.6:
+    avg_financial_strength = (funding_strength + financial_strength) / 2.0
+    monetization_potential = "High" if avg_financial_strength >= 0.75 else "Medium"
+    if avg_financial_strength < 0.6:
         monetization_potential = "Low"
 
     top_gap = market_gaps.data[0] if market_gaps.data else {}
