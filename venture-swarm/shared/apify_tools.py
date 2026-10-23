@@ -12,6 +12,9 @@ log = get_logger("Apify")
 
 _MAX_TEXT_LEN = 420
 _DEFAULT_MAX_ITEMS = 5
+# The Google News actor stops searching 30s before its run time limit, so a
+# news run needs more than the 20s APIFY_TIMEOUT_S default to return anything.
+_NEWS_MIN_TIMEOUT_S = 60
 _CACHE: dict[str, tuple[float, list[dict[str, Any]]]] = {}
 
 _CAPABILITY_ACTORS = {
@@ -74,7 +77,7 @@ def fetch_context_for_capability(
         client = ApifyClient(settings.apify_api_token)
         actor = client.actor(actor_id)
         try:
-            run = actor.call(run_input=run_input, timeout_secs=settings.apify_timeout_s)
+            run = actor.call(run_input=run_input, timeout_secs=_run_timeout_s(settings, actor_key))
         except TypeError:
             run = actor.call(run_input=run_input)
         dataset_id = run.get("defaultDatasetId")
@@ -141,6 +144,12 @@ def _actor_id(settings: Settings, actor_key: str) -> str:
     return settings.apify_google_search_actor
 
 
+def _run_timeout_s(settings: Settings, actor_key: str) -> int:
+    if actor_key == "google_news":
+        return max(settings.apify_timeout_s, _NEWS_MIN_TIMEOUT_S)
+    return settings.apify_timeout_s
+
+
 def _cache_key(actor_id: str, run_input: dict[str, Any]) -> str:
     return f"{actor_id}:{json.dumps(run_input, sort_keys=True, ensure_ascii=True)}"
 
@@ -166,12 +175,10 @@ def _capability_query(capability: str, query: str) -> str:
 def _actor_input(actor_key: str, query: str, max_items: int) -> dict[str, Any]:
     if actor_key == "google_news":
         return {
-            "query": query,
-            "queries": query,
-            "maxItems": max_items,
-            "maxItemsPerQuery": max_items,
-            "language": "en",
-            "proxyConfiguration": {"useApifyProxy": True},
+            "q": query,
+            "hl": "en",
+            "gl": "us",
+            "max_pages": 1,
         }
     if actor_key == "reddit":
         return {
@@ -194,6 +201,9 @@ def _normalize_items(item: dict[str, Any]) -> list[dict[str, Any]]:
     organic_results = item.get("organicResults")
     if isinstance(organic_results, list) and organic_results:
         return [_normalize_item(result) for result in organic_results if isinstance(result, dict)]
+    news_results = item.get("news_results")
+    if isinstance(news_results, list) and news_results:
+        return [_normalize_item(result) for result in news_results if isinstance(result, dict)]
     return [_normalize_item(item)]
 
 

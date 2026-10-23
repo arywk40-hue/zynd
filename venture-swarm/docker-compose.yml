@@ -53,7 +53,7 @@ services:
       - APIFY_TIMEOUT_S=${APIFY_TIMEOUT_S:-20}
       - APIFY_CACHE_TTL_S=${APIFY_CACHE_TTL_S:-600}
       - APIFY_GOOGLE_SEARCH_ACTOR=${APIFY_GOOGLE_SEARCH_ACTOR:-apify/google-search-scraper}
-      - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-apify/google-news-scraper}
+      - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-johnvc/GoogleNewsAPI}
       - APIFY_REDDIT_ACTOR=${APIFY_REDDIT_ACTOR:-trudax/reddit-scraper}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health', timeout=2).read()"]
@@ -93,7 +93,7 @@ services:
       - APIFY_TIMEOUT_S=${APIFY_TIMEOUT_S:-20}
       - APIFY_CACHE_TTL_S=${APIFY_CACHE_TTL_S:-600}
       - APIFY_GOOGLE_SEARCH_ACTOR=${APIFY_GOOGLE_SEARCH_ACTOR:-apify/google-search-scraper}
-      - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-apify/google-news-scraper}
+      - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-johnvc/GoogleNewsAPI}
       - APIFY_REDDIT_ACTOR=${APIFY_REDDIT_ACTOR:-trudax/reddit-scraper}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
@@ -151,7 +151,7 @@ services:
       - APIFY_TIMEOUT_S=${APIFY_TIMEOUT_S:-20}
       - APIFY_CACHE_TTL_S=${APIFY_CACHE_TTL_S:-600}
       - APIFY_GOOGLE_SEARCH_ACTOR=${APIFY_GOOGLE_SEARCH_ACTOR:-apify/google-search-scraper}
-      - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-apify/google-news-scraper}
+      - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-johnvc/GoogleNewsAPI}
       - APIFY_REDDIT_ACTOR=${APIFY_REDDIT_ACTOR:-trudax/reddit-scraper}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
@@ -209,7 +209,7 @@ services:
       - APIFY_TIMEOUT_S=${APIFY_TIMEOUT_S:-20}
       - APIFY_CACHE_TTL_S=${APIFY_CACHE_TTL_S:-600}
       - APIFY_GOOGLE_SEARCH_ACTOR=${APIFY_GOOGLE_SEARCH_ACTOR:-apify/google-search-scraper}
-      - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-apify/google-news-scraper}
+      - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-johnvc/GoogleNewsAPI}
       - APIFY_REDDIT_ACTOR=${APIFY_REDDIT_ACTOR:-trudax/reddit-scraper}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
@@ -265,7 +265,7 @@ services:
       - APIFY_TIMEOUT_S=${APIFY_TIMEOUT_S:-20}
       - APIFY_CACHE_TTL_S=${APIFY_CACHE_TTL_S:-600}
       - APIFY_GOOGLE_SEARCH_ACTOR=${APIFY_GOOGLE_SEARCH_ACTOR:-apify/google-search-scraper}
-      - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-apify/google-news-scraper}
+      - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-johnvc/GoogleNewsAPI}
       - APIFY_REDDIT_ACTOR=${APIFY_REDDIT_ACTOR:-trudax/reddit-scraper}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
@@ -321,7 +321,7 @@ services:
       - APIFY_TIMEOUT_S=${APIFY_TIMEOUT_S:-20}
       - APIFY_CACHE_TTL_S=${APIFY_CACHE_TTL_S:-600}
       - APIFY_GOOGLE_SEARCH_ACTOR=${APIFY_GOOGLE_SEARCH_ACTOR:-apify/google-search-scraper}
-      - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-apify/google-news-scraper}
+      - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-johnvc/GoogleNewsAPI}
       - APIFY_REDDIT_ACTOR=${APIFY_REDDIT_ACTOR:-trudax/reddit-scraper}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
@@ -377,7 +377,7 @@ services:
       - APIFY_TIMEOUT_S=${APIFY_TIMEOUT_S:-20}
       - APIFY_CACHE_TTL_S=${APIFY_CACHE_TTL_S:-600}
       - APIFY_GOOGLE_SEARCH_ACTOR=${APIFY_GOOGLE_SEARCH_ACTOR:-apify/google-search-scraper}
-      - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-apify/google-news-scraper}
+      - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-johnvc/GoogleNewsAPI}
       - APIFY_REDDIT_ACTOR=${APIFY_REDDIT_ACTOR:-trudax/reddit-scraper}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
@@ -433,7 +433,7 @@ services:
       - APIFY_TIMEOUT_S=${APIFY_TIMEOUT_S:-20}
       - APIFY_CACHE_TTL_S=${APIFY_CACHE_TTL_S:-600}
       - APIFY_GOOGLE_SEARCH_ACTOR=${APIFY_GOOGLE_SEARCH_ACTOR:-apify/google-search-scraper}
-      - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-apify/google-news-scraper}
+      - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-johnvc/GoogleNewsAPI}
       - APIFY_REDDIT_ACTOR=${APIFY_REDDIT_ACTOR:-trudax/reddit-scraper}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
@@ -489,7 +489,7 @@ services:
       - APIFY_TIMEOUT_S=${APIFY_TIMEOUT_S:-20}
       - APIFY_CACHE_TTL_S=${APIFY_CACHE_TTL_S:-600}
       - APIFY_GOOGLE_SEARCH_ACTOR=${APIFY_GOOGLE_SEARCH_ACTOR:-apify/google-search-scraper}
-      - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-apify/google-news-scraper}
+      - APIFY_GOOGLE_NEWS_ACTOR=${APIFY_GOOGLE_NEWS_ACTOR:-johnvc/GoogleNewsAPI}
       - APIFY_REDDIT_ACTOR=${APIFY_REDDIT_ACTOR:-trudax/reddit-scraper}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}

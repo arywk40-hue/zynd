@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     apify_timeout_s: int = 20
     apify_cache_ttl_s: int = 600
     apify_google_search_actor: str = "apify/google-search-scraper"
-    apify_google_news_actor: str = "apify/google-news-scraper"
+    apify_google_news_actor: str = "johnvc/GoogleNewsAPI"
     apify_reddit_actor: str = "trudax/reddit-scraper"
 
     openai_api_key: str | None = None
